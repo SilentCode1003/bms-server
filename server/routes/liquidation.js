@@ -221,8 +221,6 @@ router.get('/getapproved_liquidation', async (req, res) => {
     }
 });
 
-
-
 // router.get('/getcash_request_by_id', async (req, res) => {
 //         try {
 //                 const { id } = req.query;
@@ -299,9 +297,9 @@ router.post("/create_liquidation", async (req, res) => {
                         item.rt,
                         item.store_name,
                         item.particulars,
-                        item.from,
-                        item.to,
-                        item.mode_of_transportation,
+                        item.from.toUpperCase(),
+                        item.to.toUpperCase(),
+                        item.mode_of_transportation.toUpperCase(),
                         parseFloat(item.amount)
                     ]);
                 }
