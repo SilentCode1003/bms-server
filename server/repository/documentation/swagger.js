@@ -103,15 +103,15 @@ const swaggerOptions = {
         description: "Localhost"
       },
       {
-        url: "http://192.168.40.37:5012",
+        url: "http://192.168.40.82:5012",
         description: "Staging Server"
       },
       {
-        url: "http://192.168.40.37:5012",
+        url: "http://192.168.40.82:5012",
         description: "Development Server"
       },
       {
-        url: "http://192.168.40.37:5012",
+        url: "http://192.168.40.82:5012",
         description: "Auth Server"
       }
     ],
@@ -128,7 +128,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://192.168.40.37:5001
+ *       - url: http://192.168.40.82:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
@@ -149,11 +149,11 @@ module.exports = swaggerDocs;
  *             properties:
  *               username:
  *                 type: string
- *                 example: "rjat"
+ *                 example: "admin"
  *               password:
  *                 type: string
  *                 format: password
- *                 example: "rjat"
+ *                 example: "admin"
  *     responses:
  *       200:
  *         description: Successfully logged in
@@ -1056,6 +1056,95 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /cash_request/getexisting_liquidation:
+ *   get:
+ *     summary: Get existing liquidation records by employee ID
+ *     description: Retrieve liquidation records that are in "verified" status for a given employee.
+ *     tags:
+ *       - Cash Request
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - in: query
+ *         name: employee_id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The ID of the employee whose liquidation records should be fetched.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved existing liquidation records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Cash request ID linked to the liquidation
+ *       400:
+ *         description: Invalid or missing employee_id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /cash_request/getexisting_cash_request:
+ *   get:
+ *     summary: Get existing cash requests without liquidation
+ *     description: Retrieve a cash request record by ID that does not have an associated liquidation.
+ *     tags:
+ *       - Cash Request
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: The ID of the cash request to check for liquidation association.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved cash request without liquidation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Cash request ID that has no associated liquidation
+ *       400:
+ *         description: Invalid or missing request ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+
+/**
+ * @swagger
  * /cash_request/createcash_request:
  *   post:
  *     summary: Create a new cash request
@@ -1595,6 +1684,104 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation/update_liquidation_rejected:
+ *   put:
+ *     summary: Update rejected liquidation
+ *     description: Update liquidation items and activity remarks/receipts for a rejected liquidation. Only items with valid IDs can be updated. Activity will update the "PREPARED" action.
+ *     tags:
+ *       - Liquidation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - liquidation_id
+ *             properties:
+ *               liquidation_id:
+ *                 type: integer
+ *                 description: ID of the liquidation being updated
+ *               items:
+ *                 type: array
+ *                 description: List of liquidation items to update
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - date
+ *                     - particulars
+ *                     - amount
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: Liquidation item ID
+ *                     date:
+ *                       type: string
+ *                       description: Date of liquidation item
+ *                     rt:
+ *                       type: string
+ *                       description: RT reference
+ *                     store_name:
+ *                       type: string
+ *                       description: Store name
+ *                     particulars:
+ *                       type: string
+ *                       description: Item particulars
+ *                     from:
+ *                       type: string
+ *                       description: Travel origin
+ *                     to:
+ *                       type: string
+ *                       description: Travel destination
+ *                     mode_of_transportation:
+ *                       type: string
+ *                       description: Mode of transportation
+ *                     amount:
+ *                       type: number
+ *                       format: float
+ *                       description: Item amount
+ *               remarks:
+ *                 type: string
+ *                 description: Remarks for the liquidation activity
+ *               receipts:
+ *                 type: array
+ *                 description: Array of receipts with IDs and base64 images
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Receipt identifier
+ *                     image:
+ *                       type: string
+ *                       description: Base64 encoded image
+ *     responses:
+ *       200:
+ *         description: Successfully updated liquidation and activity
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *       400:
+ *         description: Missing required fields or invalid item data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  *         content:
  *           application/json:
  *             schema:
