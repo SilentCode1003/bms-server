@@ -179,7 +179,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
 
                         let select_cash_request_rejected_no_liquidation_sql = SelectStatement(
                                 `SELECT
-                                cr_id AS id
+                                '' AS id
                                 FROM cash_request cr
                                 LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
                                 WHERE cr_employee_id = ? and isnull(l.l_status)`,
