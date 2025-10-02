@@ -183,10 +183,8 @@ router.get("/getexisting_liquidation", async (req, res) => {
                                  select_liquidation_sql = SelectStatement(
                                         `SELECT
                                             cr_id AS id
-                                          FROM cash_request cr
-                                          LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id           
-                                          WHERE not cr.cr_status = 'rejected' or not l.l_status in ('verified','completed','rejected')
-                                            AND cr_employee_id = ?`,
+                                          FROM cash_request cr       
+                                          WHERE cr_employee_id = ?`,
                                         [employee_id]
                                 );
                         } else {
