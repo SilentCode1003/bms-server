@@ -166,16 +166,41 @@ router.get('/getapproved_cash_request', async (req, res) => {
 router.get("/getexisting_liquidation", async (req, res) => {
         try {
                 const { employee_id } = req.query;
+                let select_liquidation_sql = '';
                 async function ProcessData() {
-                        let select_liquidation_sql = SelectStatement(
+
+                        let select_cash_request_sql = SelectStatement(
                                 `SELECT
-                                    cr_id AS id
-                                  FROM cash_request cr
-                                  LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
-                                  WHERE isnull(l.l_status) and not cr.cr_status = 'rejected' or not l.l_status in ('verified','completed','rejected')
-                                    AND cr_employee_id = ?`,
+                                cr_id AS id
+                                FROM cash_request cr
+                                WHERE cr_employee_id = ?`,
                                 [employee_id]
                         );
+                        let select_cash_request_result = await Select(select_cash_request_sql);
+
+
+                        if (select_cash_request_result.length === 0) {
+                                 select_liquidation_sql = SelectStatement(
+                                        `SELECT
+                                            cr_id AS id
+                                          FROM cash_request cr
+                                          LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id           
+                                          WHERE isnull(l.l_status) not cr.cr_status = 'rejected' or not l.l_status in ('verified','completed','rejected')
+                                            AND cr_employee_id = ?`,
+                                        [employee_id]
+                                );
+                        } else {
+                                 select_liquidation_sql = SelectStatement(
+                                        `SELECT
+                                            cr_id AS id
+                                          FROM cash_request cr
+                                          LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id           
+                                          WHERE isnull(l.l_status) and not cr.cr_status = 'rejected' or not l.l_status in ('verified','completed','rejected')
+                                            AND cr_employee_id = ?`,
+                                        [employee_id]
+                                );
+                        }
+                        
 
                         let result = await Select(select_liquidation_sql);
                         return res.status(200).json(result);
