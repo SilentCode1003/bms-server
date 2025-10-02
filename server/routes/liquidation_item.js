@@ -41,6 +41,8 @@ router.get('/getliquidation_item', async (req, res) => {
     li_mode_of_transportation AS mode_of_transportation,
     li_amount as amount
 FROM liquidation_item
+LEFT JOIN liquidation l ON li_liquidation_id = l.l_id
+WHERE l.l_status != 'rejected'
 GROUP BY li_from, li_to, li_mode_of_transportation
 ORDER BY started_from, ended_to, mode_of_transportation;
 
