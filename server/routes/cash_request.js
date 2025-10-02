@@ -176,19 +176,34 @@ router.get("/getexisting_liquidation", async (req, res) => {
                                 WHERE cr_employee_id = ?`,
                                 [employee_id]
                         );
+
+                        let select_cash_request_rejected_no_liquidation_sql = SelectStatement(
+                                `SELECT
+                                cr_id AS id
+                                FROM cash_request cr
+                                LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
+                                WHERE cr_employee_id = ? and isnull(l.l_status)`,
+                                [employee_id]
+                        );
                         let select_cash_request_result = await Select(select_cash_request_sql);
 
+                        //Return rejected cash request without liquidation
+                        let select_cash_request_rejected_no_liquidation_result = await Select(select_cash_request_rejected_no_liquidation_sql);
+                        
+                        if (select_cash_request_rejected_no_liquidation_result.length > 0) {
+                                return res.status(200).json(select_cash_request_rejected_no_liquidation_result);
+                        }
 
                         if (select_cash_request_result.length === 0) {
-                                 select_liquidation_sql = SelectStatement(
+                                select_liquidation_sql = SelectStatement(
                                         `SELECT
                                             cr_id AS id
                                           FROM cash_request cr       
-                                          WHERE cr_employee_id = ? or cr_status = 'rejected'`,
+                                          WHERE cr_employee_id = ?`,
                                         [employee_id]
                                 );
                         } else {
-                                 select_liquidation_sql = SelectStatement(
+                                select_liquidation_sql = SelectStatement(
                                         `SELECT
                                             cr_id AS id
                                           FROM cash_request cr
@@ -198,7 +213,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
                                         [employee_id]
                                 );
                         }
-                        
+
 
                         let result = await Select(select_liquidation_sql);
                         return res.status(200).json(result);
@@ -500,7 +515,7 @@ router.put("/updatecash_request_rejected", async (req, res) => {
                         [CashRequests.cash_request.selectOptionsColumn.id],
                 );
                 await Update(update_sql, data);
-                
+
                 res.status(200).json(JsonResponseSuccess());
         } catch (error) {
                 console.log(error);
