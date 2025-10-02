@@ -74,3 +74,18 @@ exports.Insert = (query, data) => {
     });
   });
 };
+
+exports.Delete = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    connection.query(query, params, (err, result) => {
+      if (err) {
+        console.log("Error running delete query:", err);
+        console.log("Query:", query);
+        console.log("Params:", params);
+        reject(err);
+      } else {
+        resolve(result.affectedRows);
+      }
+    });
+  });
+};

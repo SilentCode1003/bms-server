@@ -29,19 +29,23 @@ router.get('/getliquidation_item', async (req, res) => {
                 console.log("getliquidation_item");
                 async function ProcessData() {
                         let select_liquidation_item_sql = SelectStatement(
-                                `SELECT
-                                li_id as id,
-                                li_liquidation_id as liquidation_id,
-                                li_date as date,
-                                li_rt as rt,
-                                li_store_name as store_name,
-                                li_particulars as particulars,
-                                li_from as started_from,
-                                li_to as ended_to,
-                                li_mode_of_transportation as mode_of_transportation,
-                                li_amount as amount
-                                FROM liquidation_item
-                                ORDER BY li_id DESC
+                                `SELECT 
+    MIN(li_id) as id,
+    MIN(li_liquidation_id) as liquidation_id,
+    MIN(li_date) as date,
+    MIN(li_rt) as rt,
+    MIN(li_store_name) as store_name,
+    MIN(li_particulars) as particulars,
+    li_from AS started_from,
+    li_to AS ended_to,
+    li_mode_of_transportation AS mode_of_transportation,
+    li_amount as amount
+FROM liquidation_item
+LEFT JOIN liquidation l ON li_liquidation_id = l.l_id
+WHERE l.l_status != 'rejected'
+GROUP BY li_from, li_to, li_mode_of_transportation
+ORDER BY started_from, ended_to, mode_of_transportation;
+
                                 `
                         );
 

@@ -14,7 +14,7 @@ const {
 } = require("../repository/helper/customhelper");
 const { Liquidations } = require("../repository/model/liquidation");
 const { Masters } = require("../repository/model/masters");
-const { Select, Insert, Update } = require("../repository/helper/dbconnect");
+const { Select, Insert, Update, Delete } = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
 const { EncrypterString, DecrypterString } = require("../repository/helper/crytography");
 const jwt = require('jsonwebtoken');
@@ -256,156 +256,165 @@ router.post("/create_liquidation", async (req, res) => {
             return res.status(400).json(JsonResposeError("At least one request item is required"));
         }
 
-        let status = "PENDING";
-        let request_date = GetCurrentDatetime();
-        let action = "PREPARED";
-        let created_at = GetCurrentDatetime();
-
-        async function ProcessData() {
-            let select_sql = SelectStatement(
-                `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
-                [reference_id]
-            );
-            let result = await Select(select_sql);
-
-            if (result.length > 0) {
-                return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
-            }
-
-            let data = [
-                [reference_id, description, amount_obtained, amount_expended, reimburse_return, request_date, status],
-            ];
-
-            let insert_sql = InsertStatement(
-                Liquidations.liquidation.tablename,
-                Liquidations.liquidation.prefix,
-                Liquidations.liquidation.insertColumns
-            );
-
-            let liquidationResult = await Insert(insert_sql, data);
-            let liquidation_id = liquidationResult[0]?.id || liquidationResult.id;
-            if (!liquidation_id) {
-                return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
-            }
-
-            let itemsData = [];
-            for (const item of request_items) {
-                if (item.date && item.rt && item.store_name && item.particulars && item.from && item.to && item.mode_of_transportation && item.amount) {
-                    itemsData.push([
-                        liquidation_id,
-                        item.date,
-                        item.rt,
-                        item.store_name,
-                        item.particulars,
-                        item.from.toUpperCase(),
-                        item.to.toUpperCase(),
-                        item.mode_of_transportation.toUpperCase(),
-                        parseFloat(item.amount)
-                    ]);
-                }
-            }
-
-            if (itemsData.length === 0) {
-                return res.status(400).json(JsonResposeError("No valid request items provided"));
-            }
-
-            if (itemsData.length > 0) {
-                let item_insert_sql = InsertStatement(
-                    Liquidations.liquidation_item.tablename,
-                    Liquidations.liquidation_item.prefix,
-                    Liquidations.liquidation_item.insertColumns
+        let itemsData = [];
+        for (const [index, item] of request_items.entries()) {
+            
+            if (!item.date || !item.particulars || !item.amount) {
+                return res.status(400).json(
+                    JsonResposeError(`Request item at index ${index} is missing required fields (date, particulars, amount).`)
                 );
-                await Insert(item_insert_sql, itemsData);
             }
+        }
 
-            let formattedReceipts = [];
-            if (Array.isArray(receipts)) {
-                formattedReceipts = receipts.map((img, index) => ({
-                    id: String(index + 1),
-                    image: img
-                }));
-            }
+            let status = "PENDING";
+            let request_date = GetCurrentDatetime();
+            let action = "PREPARED";
+            let created_at = GetCurrentDatetime();
 
-            let activityData = [
-                [
-                    liquidation_id,
-                    action,
-                    remarks || "",
-                    JSON.stringify(formattedReceipts),
-                    created_at,
-                    created_by
-                ]
-            ];
-            let activity_insert_sql = InsertStatement(
-                Liquidations.liquidation_activity.tablename,
-                Liquidations.liquidation_activity.prefix,
-                Liquidations.liquidation_activity.insertColumns
-            );
-            await Insert(activity_insert_sql, activityData);
+            async function ProcessData() {
+                let select_sql = SelectStatement(
+                    `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
+                    [reference_id]
+                );
+                let result = await Select(select_sql);
 
-            let select_emmployee_id = SelectStatement(
-                `SELECT
+                if (result.length > 0) {
+                    return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
+                }
+
+                let data = [
+                    [reference_id, description, amount_obtained, amount_expended, reimburse_return, request_date, status],
+                ];
+
+                let insert_sql = InsertStatement(
+                    Liquidations.liquidation.tablename,
+                    Liquidations.liquidation.prefix,
+                    Liquidations.liquidation.insertColumns
+                );
+
+                let liquidationResult = await Insert(insert_sql, data);
+                let liquidation_id = liquidationResult[0]?.id || liquidationResult.id;
+                if (!liquidation_id) {
+                    return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
+                }
+
+                let itemsData = [];
+                for (const item of request_items) {
+                    if (item.date && item.rt && item.store_name && item.particulars && item.from && item.to && item.mode_of_transportation && item.amount) {
+                        itemsData.push([
+                            liquidation_id,
+                            item.date,
+                            item.rt,
+                            item.store_name,
+                            item.particulars,
+                            item.from.toUpperCase(),
+                            item.to.toUpperCase(),
+                            item.mode_of_transportation.toUpperCase(),
+                            parseFloat(item.amount)
+                        ]);
+                    }
+                }
+
+                if (itemsData.length === 0) {
+                    return res.status(400).json(JsonResposeError("No valid request items provided"));
+                }
+
+                if (itemsData.length > 0) {
+                    let item_insert_sql = InsertStatement(
+                        Liquidations.liquidation_item.tablename,
+                        Liquidations.liquidation_item.prefix,
+                        Liquidations.liquidation_item.insertColumns
+                    );
+                    await Insert(item_insert_sql, itemsData);
+                }
+
+                let formattedReceipts = [];
+                if (Array.isArray(receipts)) {
+                    formattedReceipts = receipts.map((img, index) => ({
+                        id: String(index + 1),
+                        image: img
+                    }));
+                }
+
+                let activityData = [
+                    [
+                        liquidation_id,
+                        action,
+                        remarks || "",
+                        JSON.stringify(formattedReceipts),
+                        created_at,
+                        created_by
+                    ]
+                ];
+                let activity_insert_sql = InsertStatement(
+                    Liquidations.liquidation_activity.tablename,
+                    Liquidations.liquidation_activity.prefix,
+                    Liquidations.liquidation_activity.insertColumns
+                );
+                await Insert(activity_insert_sql, activityData);
+
+                let select_emmployee_id = SelectStatement(
+                    `SELECT
                 cr_employee_id as employee_id
                 FROM cash_request
                 WHERE cr_reference_id = "${reference_id}"`
-            );
-            let employee_id = await Select(select_emmployee_id);
-            employee_id = employee_id[0]?.employee_id;
+                );
+                let employee_id = await Select(select_emmployee_id);
+                employee_id = employee_id[0]?.employee_id;
 
-            let select_wallet_sql = SelectStatement(
-                `SELECT
+                let select_wallet_sql = SelectStatement(
+                    `SELECT
                 mw_id as id,
                 mw_employee_id as employee_id,
                 mw_previous_amount as previous_amount,
                 mw_current_amount as current_amount
                 FROM master_wallet
                 WHERE mw_employee_id = ${employee_id}`
-            );
-            let walletResult = await Select(select_wallet_sql);
+                );
+                let walletResult = await Select(select_wallet_sql);
 
-            let previous_amount = walletResult[0]?.previous_amount;
-            let current_amount = amount_obtained - amount_expended;
-            if (current_amount < 0) {
-                current_amount = 0;
+                let previous_amount = walletResult[0]?.previous_amount;
+                let current_amount = amount_obtained - amount_expended;
+                if (current_amount < 0) {
+                    current_amount = 0;
+                }
+                console.log(current_amount);
+                console.log(previous_amount);
+                console.log(employee_id);
+
+                let wallet_data = [previous_amount, current_amount, employee_id];
+                let update_wallet_sql = UpdateStatement(
+                    Masters.master_wallet.tablename,
+                    [Masters.master_wallet.selectOptionsColumn.previous_amount,
+                    Masters.master_wallet.selectOptionsColumn.current_amount],
+                    [Masters.master_wallet.selectOptionsColumn.employee_id]
+                );
+                await Update(update_wallet_sql, [wallet_data]);
+
+                let wallet_activityData = [
+                    [
+                        walletResult[0]?.id,
+                        `Updated wallet balance from:${previous_amount} to ${current_amount}`,
+                        created_at
+                    ]
+                ];
+                let wallet_activity_insert_sql = InsertStatement(
+                    Masters.master_wallet_activity.tablename,
+                    Masters.master_wallet_activity.prefix,
+                    Masters.master_wallet_activity.insertColumns
+                );
+                await Insert(wallet_activity_insert_sql, wallet_activityData);
+
+
+                res.status(200).json(JsonResponseSuccess());
             }
-            console.log(current_amount);
-            console.log(previous_amount);
-            console.log(employee_id);
 
-            let wallet_data = [previous_amount, current_amount, employee_id];
-            let update_wallet_sql = UpdateStatement(
-                Masters.master_wallet.tablename,
-                [Masters.master_wallet.selectOptionsColumn.previous_amount,
-                Masters.master_wallet.selectOptionsColumn.current_amount],
-                [Masters.master_wallet.selectOptionsColumn.employee_id]
-            );
-            await Update(update_wallet_sql, [wallet_data]);
-
-            let wallet_activityData = [
-                [
-                    walletResult[0]?.id,
-                    `Updated wallet balance from:${previous_amount} to ${current_amount}`,
-                    created_at
-                ]
-            ];
-            let wallet_activity_insert_sql = InsertStatement(
-                Masters.master_wallet_activity.tablename,
-                Masters.master_wallet_activity.prefix,
-                Masters.master_wallet_activity.insertColumns
-            );
-            await Insert(wallet_activity_insert_sql, wallet_activityData);
-
-
-            res.status(200).json(JsonResponseSuccess());
+            await ProcessData();
+        } catch (error) {
+            console.log(error);
+            res.status(500).json(JsonResposeError(error));
         }
-
-        await ProcessData();
-    } catch (error) {
-        console.log(error);
-        res.status(500).json(JsonResposeError(error));
-    }
-});
-
+    });
 
 router.put("/update_liquidation", async (req, res) => {
     try {
@@ -433,7 +442,7 @@ router.put("/update_liquidation", async (req, res) => {
                     [
                         id,
                         "NOTED",
-                        "",
+                        remarks || "",
                         receipts,
                         created_at,
                         created_by
@@ -486,7 +495,7 @@ router.put("/update_liquidation", async (req, res) => {
                     [id]
                 );
                 let liquidation = await Select(select_liquidation);
-                
+
                 let select_emmployee_id = SelectStatement(
                     `SELECT
                     cr_employee_id as employee_id
@@ -597,6 +606,144 @@ router.put("/update_liquidation", async (req, res) => {
         await ProcessData();
     } catch (error) {
         console.log(error);
+        res.status(500).json(JsonResposeError(error));
+    }
+});
+
+router.put("/update_liquidation_rejected", async (req, res) => {
+    try {
+        const { liquidation_id, items, remarks, receipts } = req.body;
+
+        if (!liquidation_id) {
+            return res.status(400).json(JsonResposeError("Missing liquidation_id"));
+        }
+
+        let storedReceipts = [];
+        if (Array.isArray(receipts)) {
+            storedReceipts = receipts.map((r, index) => ({
+                id: r.id || (index + 1).toString(),
+                image: r.image || ""
+            }));
+        }
+
+        let select_liquidation = SelectStatement(
+            `SELECT
+            l_amount_obtained as amount_obtained
+            FROM liquidation
+            WHERE l_id = ?
+            `,
+            [liquidation_id]
+        );
+        let liquidation = await Select(select_liquidation);
+        let amount_obtained = liquidation[0]?.amount_obtained || 0;
+        
+        let amount_expended = 0;
+        if (Array.isArray(items) && items.length > 0) {
+            amount_expended = items.reduce((sum, item) => {
+                return sum + (parseFloat(item.amount) || 0);
+            }, 0);
+        }
+        
+        let reimburse_return = amount_obtained - amount_expended;
+        if (reimburse_return < 0) reimburse_return = 0;
+        
+        let data = [
+            amount_expended,
+            reimburse_return,
+            liquidation_id
+        ];
+        
+        let update_liquidation_sql = UpdateStatement(
+            Liquidations.liquidation.tablename,
+            [
+                Liquidations.liquidation.selectOptionsColumn.amount_expended,
+                Liquidations.liquidation.selectOptionsColumn.reimburse_return,
+            ],
+            [Liquidations.liquidation.selectOptionsColumn.id]
+        );
+        
+        await Update(update_liquidation_sql, [data]);
+        
+        if (Array.isArray(items) && items.length > 0) {
+            for (const item of items) {
+                if (!item.id || !item.date || !item.particulars || !item.amount) {
+                    return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
+                }
+        
+                let itemData = [
+                    item.date,
+                    item.rt || "",
+                    item.store_name || "",
+                    item.particulars,
+                    item.from || "",
+                    item.to || "",
+                    item.mode_of_transportation || "",
+                    parseFloat(item.amount),
+                    item.id,
+                ];
+        
+                let update_item_sql = UpdateStatement(
+                    Liquidations.liquidation_item.tablename,
+                    [
+                        Liquidations.liquidation_item.selectOptionsColumn.date,
+                        Liquidations.liquidation_item.selectOptionsColumn.rt,
+                        Liquidations.liquidation_item.selectOptionsColumn.store_name,
+                        Liquidations.liquidation_item.selectOptionsColumn.particulars,
+                        Liquidations.liquidation_item.selectOptionsColumn.from,
+                        Liquidations.liquidation_item.selectOptionsColumn.to,
+                        Liquidations.liquidation_item.selectOptionsColumn.mode_of_transportation,
+                        Liquidations.liquidation_item.selectOptionsColumn.amount,
+                    ],
+                    [Liquidations.liquidation_item.selectOptionsColumn.id]
+                );
+        
+                await Update(update_item_sql, [itemData]);
+            }
+        }
+        
+
+        let activityData = [
+            remarks || "",
+            JSON.stringify(storedReceipts),
+            liquidation_id,
+            "PREPARED"
+        ];
+
+        let update_activity_sql = UpdateStatement(
+            Liquidations.liquidation_activity.tablename,
+            [
+                Liquidations.liquidation_activity.selectOptionsColumn.remarks,
+                Liquidations.liquidation_activity.selectOptionsColumn.receipts,
+            ],
+            [
+                Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id,
+                Liquidations.liquidation_activity.selectOptionsColumn.action,
+            ]
+        );
+
+        await Update(update_activity_sql, [activityData]);
+
+        let itemData = [
+            "pending",
+            liquidation_id,
+        ];
+
+        let update_item_sql = UpdateStatement(
+            Liquidations.liquidation.tablename,
+            [
+                Liquidations.liquidation.selectOptionsColumn.status,
+            ],
+            [Liquidations.liquidation.selectOptionsColumn.id]
+        );
+
+        await Update(update_item_sql, [itemData]);
+
+        await Delete(`DELETE FROM liquidation_activity WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`, [liquidation_id]);
+
+
+        res.status(200).json(JsonResponseSuccess());
+    } catch (error) {
+        console.error("Error in updatecash_request_rejected:", error);
         res.status(500).json(JsonResposeError(error));
     }
 });

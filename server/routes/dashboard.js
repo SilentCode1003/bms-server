@@ -242,3 +242,19 @@ router.get('/get_teamleader_cards', async (req, res) => {
         res.status(500).json(JsonResposeError(error));
     }
 });
+
+router.get('/get_user_overall_expenses', async (req, res) => {
+    try {
+     async function ProcessData() {
+        `SELECT
+        
+        `
+     }
+     
+     await ProcessData();
+     return res.status(200).json(result);
+    } catch (error) {
+        console.error("Error during get_user_overall_expenses:", error);
+        res.status(500).json(JsonResposeError(error));
+    }
+});
