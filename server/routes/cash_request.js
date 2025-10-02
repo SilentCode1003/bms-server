@@ -191,7 +191,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
                         let select_cash_request_rejected_no_liquidation_result = await Select(select_cash_request_rejected_no_liquidation_sql);
                         
                         if (select_cash_request_rejected_no_liquidation_result.length > 0) {
-                                return res.status(200).json(select_cash_request_rejected_no_liquidation_result);
+                                return res.status(200).json([]);
                         }
 
                         if (select_cash_request_result.length === 0) {
