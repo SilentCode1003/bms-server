@@ -1170,7 +1170,6 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
-
 /**
  * @swagger
  * /cash_request/createcash_request:
@@ -1297,6 +1296,78 @@ module.exports = swaggerDocs;
  *               properties:
  *                 message:
  *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /cash_request/update_cash_request_rejected:
+ *   put:
+ *     summary: Update a previously rejected cash request
+ *     description: Update the details of a rejected cash request and set its status back to `PENDING`. It also removes the rejection activity log and adds an update activity record.
+ *     tags:
+ *       - Cash Request
+ *     consumes:
+ *       - application/json
+ *     produces:
+ *       - application/json
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cash_request_id
+ *               - updated_by
+ *             properties:
+ *               cash_request_id:
+ *                 type: integer
+ *                 description: ID of the cash request to update
+ *               date:
+ *                 type: string
+ *                 description: Updated date of the cash request
+ *               description:
+ *                 type: string
+ *                 description: Updated description of the cash request
+ *               team_lead:
+ *                 type: string
+ *                 description: Updated team lead for the cash request
+ *               amount:
+ *                 type: number
+ *                 description: Updated amount of the cash request
+ *               updated_by:
+ *                 type: string
+ *                 description: User who updated the request
+ *     responses:
+ *       200:
+ *         description: Successfully updated the rejected cash request and reset its status to pending
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Missing required fields or no fields to update
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Cash request not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal Server Error
  *         content:
