@@ -252,6 +252,7 @@ router.get('/getapproved_liquidation', async (req, res) => {
 router.post("/create_liquidation", async (req, res) => {
     try {
         const { reference_id, description, amount_obtained, amount_expended, reimburse_return, request_items, remarks, receipts, created_by } = req.body;
+        console.log("request_items",request_items);
         if (!Array.isArray(request_items) || request_items.length === 0) {
             return res.status(400).json(JsonResposeError("At least one request item is required"));
         }
@@ -612,139 +613,168 @@ router.put("/update_liquidation", async (req, res) => {
 
 router.put("/update_liquidation_rejected", async (req, res) => {
     try {
-        const { liquidation_id, items, remarks, receipts } = req.body;
-
-        if (!liquidation_id) {
-            return res.status(400).json(JsonResposeError("Missing liquidation_id"));
+      const { liquidation_id, items, remarks, receipts } = req.body;
+      console.log("rejected", items);
+  
+      if (!liquidation_id) {
+        return res.status(400).json(JsonResposeError("Missing liquidation_id"));
+      }
+  
+      let storedReceipts = [];
+      if (Array.isArray(receipts)) {
+        storedReceipts = receipts.map((r, index) => ({
+          id: r.id || (index + 1).toString(),
+          image: r.image || ""
+        }));
+      }
+  
+      let select_liquidation = SelectStatement(
+        `SELECT
+          l_amount_obtained as amount_obtained
+          FROM liquidation
+          WHERE l_id = ?`,
+        [liquidation_id]
+      );
+      let liquidation = await Select(select_liquidation);
+      let amount_obtained = liquidation[0]?.amount_obtained || 0;
+  
+      let amount_expended = 0;
+      if (Array.isArray(items) && items.length > 0) {
+        amount_expended = items.reduce((sum, item) => {
+          return sum + (parseFloat(item.amount) || 0);
+        }, 0);
+      }
+  
+      let reimburse_return = amount_obtained - amount_expended;
+      if (reimburse_return < 0) reimburse_return = 0;
+  
+      let data = [amount_expended, reimburse_return, liquidation_id];
+      let update_liquidation_sql = UpdateStatement(
+        Liquidations.liquidation.tablename,
+        [
+          Liquidations.liquidation.selectOptionsColumn.amount_expended,
+          Liquidations.liquidation.selectOptionsColumn.reimburse_return,
+        ],
+        [Liquidations.liquidation.selectOptionsColumn.id]
+      );
+      await Update(update_liquidation_sql, [data]);
+  
+      let existingItems = await Select(
+        SelectStatement(
+          `SELECT li_id FROM liquidation_item WHERE li_liquidation_id = ?`,
+          [liquidation_id]
+        )
+      );
+      let existingIds = existingItems.map(row => row.li_id);
+  
+      let incomingIds = items && Array.isArray(items) ? items.map(i => i.id).filter(id => id) : [];
+  
+      if (Array.isArray(items) && items.length > 0) {
+        for (const item of items) {
+          if (!item.date || !item.particulars || !item.amount) {
+            return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
+          }
+  
+          if (item.id && existingIds.includes(item.id)) {
+            let itemData = [
+              item.date,
+              item.rt || "",
+              item.store_name || "",
+              item.particulars,
+              item.from || "",
+              item.to || "",
+              item.mode_of_transportation || "",
+              parseFloat(item.amount),
+              item.id,
+            ];
+  
+            let update_item_sql = UpdateStatement(
+              Liquidations.liquidation_item.tablename,
+              [
+                Liquidations.liquidation_item.selectOptionsColumn.date,
+                Liquidations.liquidation_item.selectOptionsColumn.rt,
+                Liquidations.liquidation_item.selectOptionsColumn.store_name,
+                Liquidations.liquidation_item.selectOptionsColumn.particulars,
+                Liquidations.liquidation_item.selectOptionsColumn.from,
+                Liquidations.liquidation_item.selectOptionsColumn.to,
+                Liquidations.liquidation_item.selectOptionsColumn.mode_of_transportation,
+                Liquidations.liquidation_item.selectOptionsColumn.amount,
+              ],
+              [Liquidations.liquidation_item.selectOptionsColumn.id]
+            );
+  
+            await Update(update_item_sql, [itemData]);
+          } else if (!item.id) {
+            // --- Insert new item if no id ---
+            let insertData = [[
+              liquidation_id,
+              item.date,
+              item.rt || "",
+              item.store_name || "",
+              item.particulars,
+              item.from || "",
+              item.to || "",
+              item.mode_of_transportation || "",
+              parseFloat(item.amount),
+            ]];
+  
+            let insert_item_sql = InsertStatement(
+                Liquidations.liquidation_item.tablename,
+                Liquidations.liquidation_item.prefix,
+                Liquidations.liquidation_item.insertColumns
+              );
+              
+  
+            await Insert(insert_item_sql, insertData);
+          }
         }
-
-        let storedReceipts = [];
-        if (Array.isArray(receipts)) {
-            storedReceipts = receipts.map((r, index) => ({
-                id: r.id || (index + 1).toString(),
-                image: r.image || ""
-            }));
-        }
-
-        let select_liquidation = SelectStatement(
-            `SELECT
-            l_amount_obtained as amount_obtained
-            FROM liquidation
-            WHERE l_id = ?
-            `,
-            [liquidation_id]
+      }
+  
+      let idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
+      if (idsToDelete.length > 0) {
+        await Delete(
+          `DELETE FROM liquidation_item WHERE li_id IN (${idsToDelete.map(() => "?").join(",")})`,
+          idsToDelete
         );
-        let liquidation = await Select(select_liquidation);
-        let amount_obtained = liquidation[0]?.amount_obtained || 0;
-        
-        let amount_expended = 0;
-        if (Array.isArray(items) && items.length > 0) {
-            amount_expended = items.reduce((sum, item) => {
-                return sum + (parseFloat(item.amount) || 0);
-            }, 0);
-        }
-        
-        let reimburse_return = amount_obtained - amount_expended;
-        if (reimburse_return < 0) reimburse_return = 0;
-        
-        let data = [
-            amount_expended,
-            reimburse_return,
-            liquidation_id
-        ];
-        
-        let update_liquidation_sql = UpdateStatement(
-            Liquidations.liquidation.tablename,
-            [
-                Liquidations.liquidation.selectOptionsColumn.amount_expended,
-                Liquidations.liquidation.selectOptionsColumn.reimburse_return,
-            ],
-            [Liquidations.liquidation.selectOptionsColumn.id]
-        );
-        
-        await Update(update_liquidation_sql, [data]);
-        
-        if (Array.isArray(items) && items.length > 0) {
-            for (const item of items) {
-                if (!item.id || !item.date || !item.particulars || !item.amount) {
-                    return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
-                }
-        
-                let itemData = [
-                    item.date,
-                    item.rt || "",
-                    item.store_name || "",
-                    item.particulars,
-                    item.from || "",
-                    item.to || "",
-                    item.mode_of_transportation || "",
-                    parseFloat(item.amount),
-                    item.id,
-                ];
-        
-                let update_item_sql = UpdateStatement(
-                    Liquidations.liquidation_item.tablename,
-                    [
-                        Liquidations.liquidation_item.selectOptionsColumn.date,
-                        Liquidations.liquidation_item.selectOptionsColumn.rt,
-                        Liquidations.liquidation_item.selectOptionsColumn.store_name,
-                        Liquidations.liquidation_item.selectOptionsColumn.particulars,
-                        Liquidations.liquidation_item.selectOptionsColumn.from,
-                        Liquidations.liquidation_item.selectOptionsColumn.to,
-                        Liquidations.liquidation_item.selectOptionsColumn.mode_of_transportation,
-                        Liquidations.liquidation_item.selectOptionsColumn.amount,
-                    ],
-                    [Liquidations.liquidation_item.selectOptionsColumn.id]
-                );
-        
-                await Update(update_item_sql, [itemData]);
-            }
-        }
-        
-
-        let activityData = [
-            remarks || "",
-            JSON.stringify(storedReceipts),
-            liquidation_id,
-            "PREPARED"
-        ];
-
-        let update_activity_sql = UpdateStatement(
-            Liquidations.liquidation_activity.tablename,
-            [
-                Liquidations.liquidation_activity.selectOptionsColumn.remarks,
-                Liquidations.liquidation_activity.selectOptionsColumn.receipts,
-            ],
-            [
-                Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id,
-                Liquidations.liquidation_activity.selectOptionsColumn.action,
-            ]
-        );
-
-        await Update(update_activity_sql, [activityData]);
-
-        let itemData = [
-            "pending",
-            liquidation_id,
-        ];
-
-        let update_item_sql = UpdateStatement(
-            Liquidations.liquidation.tablename,
-            [
-                Liquidations.liquidation.selectOptionsColumn.status,
-            ],
-            [Liquidations.liquidation.selectOptionsColumn.id]
-        );
-
-        await Update(update_item_sql, [itemData]);
-
-        await Delete(`DELETE FROM liquidation_activity WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`, [liquidation_id]);
-
-
-        res.status(200).json(JsonResponseSuccess());
+      }
+  
+      let activityData = [
+        remarks || "",
+        JSON.stringify(storedReceipts),
+        liquidation_id,
+        "PREPARED"
+      ];
+      let update_activity_sql = UpdateStatement(
+        Liquidations.liquidation_activity.tablename,
+        [
+          Liquidations.liquidation_activity.selectOptionsColumn.remarks,
+          Liquidations.liquidation_activity.selectOptionsColumn.receipts,
+        ],
+        [
+          Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id,
+          Liquidations.liquidation_activity.selectOptionsColumn.action,
+        ]
+      );
+      await Update(update_activity_sql, [activityData]);
+  
+      let statusData = ["pending", liquidation_id];
+      let update_status_sql = UpdateStatement(
+        Liquidations.liquidation.tablename,
+        [Liquidations.liquidation.selectOptionsColumn.status],
+        [Liquidations.liquidation.selectOptionsColumn.id]
+      );
+      await Update(update_status_sql, [statusData]);
+  
+      await Delete(
+        `DELETE FROM liquidation_activity WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`,
+        [liquidation_id]
+      );
+  
+      res.status(200).json(JsonResponseSuccess());
     } catch (error) {
-        console.error("Error in updatecash_request_rejected:", error);
-        res.status(500).json(JsonResposeError(error));
+      console.error("Error in update_liquidation_rejected:", error);
+      res.status(500).json(JsonResposeError(error));
     }
-});
+  });
+  
 
