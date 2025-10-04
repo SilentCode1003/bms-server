@@ -2072,5 +2072,94 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_item_started_from:
+ *   get:
+ *     summary: Get distinct starting locations for liquidation items
+ *     description: Retrieve a list of distinct starting locations for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct starting locations for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   started_from:
+ *                     type: string
+ *                     description: Distinct starting location for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_item_ended_to:
+ *   get:
+ *     summary: Get distinct ending locations for liquidation items
+ *     description: Retrieve a list of distinct ending locations for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct ending locations for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   ended_to:
+ *                     type: string
+ *                     description: Distinct ending location for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_item_mode_of_transportation:
+ *   get:
+ *     summary: Get distinct mode of transportation for liquidation items
+ *     description: Retrieve a list of distinct modes of transportation for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct modes of transportation for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   mode_of_transportation:
+ *                     type: string
+ *                     description: Distinct mode of transportation for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+
 //#endregion
 
