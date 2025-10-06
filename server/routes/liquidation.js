@@ -252,7 +252,7 @@ router.get('/getapproved_liquidation', async (req, res) => {
 router.post("/create_liquidation", async (req, res) => {
     try {
         const { reference_id, description, amount_obtained, amount_expended, reimburse_return, request_items, remarks, receipts, created_by } = req.body;
-        console.log("request_items", request_items);
+console.log("create liquidation", req.body);
         let status = "PENDING";
         let request_date = GetCurrentDatetime();
         let action = "PREPARED";
@@ -331,13 +331,13 @@ router.post("/create_liquidation", async (req, res) => {
                 if (item.date && item.rt && item.store_name && item.particulars && item.from && item.to && item.mode_of_transportation && item.amount) {
                     itemsData.push([
                         liquidation_id,
-                        item.date,
-                        item.rt,
-                        item.store_name,
-                        item.particulars,
-                        item.from.replace(/[^a-zA-Z ]/g, "").toUpperCase(),
-                        item.to.replace(/[^a-zA-Z ]/g, "").toUpperCase(),
-                        item.mode_of_transportation.replace(/[^a-zA-Z ]/g, "").toUpperCase(),
+                        item.date || "N/A",
+                        item.rt || "N/A",
+                        item.store_name || "N/A",
+                        item.particulars || "N/A",
+                        item.from.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
+                        item.to.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
+                        item.mode_of_transportation.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
                         parseFloat(item.amount) || 0
                     ]);
                 }
@@ -434,7 +434,6 @@ router.post("/create_liquidation", async (req, res) => {
             res.status(200).json(JsonResponseSuccess());
         }
 
-
     } catch (error) {
         console.log(error);
         res.status(500).json(JsonResposeError(error));
@@ -444,7 +443,7 @@ router.post("/create_liquidation", async (req, res) => {
 router.put("/update_liquidation", async (req, res) => {
     try {
         const { status, id, remarks, receipts, created_by } = req.body;
-        console.log("test", req.body)
+        console.log("Update Liquidation", req.body)
         let created_at = GetCurrentDatetime();
         if (!id || !status) {
             return res.status(400).json(JsonResposeError("Missing required fields"));
@@ -455,8 +454,6 @@ router.put("/update_liquidation", async (req, res) => {
             if (status === "approved") {
                 let data = [status, id];
                 let update_sql = UpdateStatement(
-
-
                     Liquidations.liquidation.tablename,
                     [Liquidations.liquidation.selectOptionsColumn.status],
                     [Liquidations.liquidation.selectOptionsColumn.id]
@@ -638,8 +635,12 @@ router.put("/update_liquidation", async (req, res) => {
 router.put("/update_liquidation_rejected", async (req, res) => {
     try {
         const { liquidation_id, items, remarks, receipts } = req.body;
-        console.log("rejected", items);
-
+        console.log("update liquidation rejected", req.body);
+        for (const item of items) {
+            if (!item.date || !item.particulars || !item.amount) {
+                return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
+            }
+        }
         if (!liquidation_id) {
             return res.status(400).json(JsonResposeError("Missing liquidation_id"));
         }
@@ -670,7 +671,10 @@ router.put("/update_liquidation_rejected", async (req, res) => {
         }
 
         let reimburse_return = amount_obtained - amount_expended;
-        if (reimburse_return < 0) reimburse_return = 0;
+
+        if (reimburse_return < 0) (reimburse_return *= -1);
+        
+        console.log("reimburse_return", reimburse_return);
 
         let data = [amount_expended, reimburse_return, liquidation_id];
         let update_liquidation_sql = UpdateStatement(
@@ -695,9 +699,9 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 
         if (Array.isArray(items) && items.length > 0) {
             for (const item of items) {
-                if (!item.date || !item.particulars || !item.amount) {
-                    return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
-                }
+                // if (!item.date || !item.particulars || !item.amount) {
+                //     return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
+                // }
 
                 if (item.id && existingIds.includes(item.id)) {
                     let itemData = [
