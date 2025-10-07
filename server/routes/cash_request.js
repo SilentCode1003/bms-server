@@ -263,21 +263,8 @@ router.post("/createcash_request", async (req, res) => {
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
+    
     let select_liquidation_sql = "";
-      let select_cash_request_sql = SelectStatement(
-        `SELECT
-        cr_id AS id
-        FROM cash_request cr
-        WHERE cr_employee_id = ?`,
-        [employee_id]
-      );
-
-      let select_cash_request_result = await Select(select_cash_request_sql);
-
-      if (select_cash_request_result.length === 0) {
-        return res.status(200).json([]);
-      }
-
       select_liquidation_sql = SelectStatement(
         `SELECT cr_id
         FROM cash_request
@@ -288,7 +275,6 @@ router.post("/createcash_request", async (req, res) => {
       );
 
       let result2 = await Select(select_liquidation_sql);
-
       if (result2.length > 0) {
         return res.status(400).json(JsonResposeError("You cannot create a new cash request"));
       }
