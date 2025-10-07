@@ -221,11 +221,11 @@ router.get("/getexisting_cash_request", async (req, res) => {
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
-                                    cr_id AS id
-                                  FROM cash_request cr
-                                  LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
-                                  WHERE isnull(l.l_status)
-                                    AND cr_id = ?`,
+        cr_id AS id
+        FROM cash_request cr
+        LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
+        WHERE isnull(l.l_status)
+        AND cr_id = ?`,
         [id]
       );
 
@@ -263,6 +263,35 @@ router.post("/createcash_request", async (req, res) => {
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
+    let select_liquidation_sql = "";
+      let select_cash_request_sql = SelectStatement(
+        `SELECT
+        cr_id AS id
+        FROM cash_request cr
+        WHERE cr_employee_id = ?`,
+        [employee_id]
+      );
+
+      let select_cash_request_result = await Select(select_cash_request_sql);
+
+      if (select_cash_request_result.length === 0) {
+        return res.status(200).json([]);
+      }
+
+      select_liquidation_sql = SelectStatement(
+        `SELECT cr_id
+        FROM cash_request
+        LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
+        WHERE cr_employee_id = ?
+        AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected'))`,
+        [employee_id]
+      );
+
+      let result2 = await Select(select_liquidation_sql);
+
+      if (result2.length > 0) {
+        return res.status(400).json(JsonResposeError("You cannot create a new cash request"));
+      }
 
     let status = "PENDING";
     let request_date = GetCurrentDatetime();
