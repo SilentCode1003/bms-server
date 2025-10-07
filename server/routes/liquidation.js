@@ -253,6 +253,7 @@ router.post("/create_liquidation", async (req, res) => {
     try {
         const { reference_id, description, amount_obtained, amount_expended, reimburse_return, request_items, remarks, receipts, created_by } = req.body;
 console.log("create liquidation", req.body);
+
         let status = "PENDING";
         let request_date = GetCurrentDatetime();
         let action = "PREPARED";
@@ -328,7 +329,7 @@ console.log("create liquidation", req.body);
 
             let itemsData = [];
             for (const item of request_items) {
-                if (item.date && item.rt && item.store_name && item.particulars && item.from && item.to && item.mode_of_transportation && item.amount) {
+               
                     itemsData.push([
                         liquidation_id,
                         item.date || "N/A",
@@ -340,7 +341,6 @@ console.log("create liquidation", req.body);
                         item.mode_of_transportation.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
                         parseFloat(item.amount) || 0
                     ]);
-                }
             }
 
             if (itemsData.length === 0) {
@@ -673,8 +673,6 @@ router.put("/update_liquidation_rejected", async (req, res) => {
         let reimburse_return = amount_obtained - amount_expended;
 
         if (reimburse_return < 0) (reimburse_return *= -1);
-        
-        console.log("reimburse_return", reimburse_return);
 
         let data = [amount_expended, reimburse_return, liquidation_id];
         let update_liquidation_sql = UpdateStatement(
