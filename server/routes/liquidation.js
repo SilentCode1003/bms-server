@@ -166,40 +166,7 @@ router.get('/getapproved_liquidation', async (req, res) => {
               l.l_reimburse_return as reimburse_return,
               l.l_created_date as created_date,
               l.l_status as status,
-              SUM(li.li_amount) AS amount,
-              
-              JSON_ARRAYAGG(
-                JSON_OBJECT(
-                  'id', li.li_id,
-                  'liquidation_id', li.li_liquidation_id,
-                  'date', li.li_date,
-                  'rt', li.li_rt,
-                  'store_name', li.li_store_name,
-                  'particulars', li.li_particulars,
-                  'from', li.li_from,
-                  'to', li.li_to,
-                  'mode_of_transportation', li.li_mode_of_transportation,
-                  'amount', li.li_amount
-                )
-              ) AS liquidation_items,
-  
-              (
-                SELECT JSON_ARRAYAGG(
-                  JSON_OBJECT(
-                    'id', lia.lia_id,
-                    'liquidation_id', lia.lia_liquidation_id,
-                    'action', lia.lia_action,
-                    'remarks', lia.lia_remarks,
-                    'receipts', lia.lia_receipts,
-                    'created_at', lia.lia_created_at,
-                    'created_by', lia.lia_created_by
-                  )
-                )
-                FROM liquidation_activity lia
-                WHERE lia.lia_liquidation_id = l.l_id
-                AND lia.lia_action IN ('PREPARED','NOTED','REJECTED','APPROVED','CHECKED')
-              ) AS liquidation_activities
-            
+              SUM(li.li_amount) AS amount
           FROM liquidation l
           LEFT JOIN cash_request cr
             ON l.l_cr_reference_id = cr.cr_reference_id
@@ -637,7 +604,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
         const { liquidation_id, items, remarks, receipts } = req.body;
         console.log("update liquidation rejected", req.body);
         for (const item of items) {
-            if (!item.date || !item.particulars || !item.amount) {
+            if (!item.date || !item.particulars) {
                 return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
             }
         }
@@ -703,14 +670,14 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 
                 if (item.id && existingIds.includes(item.id)) {
                     let itemData = [
-                        item.date,
-                        item.rt || "",
-                        item.store_name || "",
+                        item.date || "N/A",
+                        item.rt || "N/A",
+                        item.store_name || "N/A",
                         item.particulars,
-                        item.from || "",
-                        item.to || "",
-                        item.mode_of_transportation || "",
-                        parseFloat(item.amount),
+                        item.from || "N/A",
+                        item.to || "N/A",
+                        item.mode_of_transportation || "N/A",
+                        parseFloat(item.amount) || 0,
                         item.id,
                     ];
 
@@ -731,17 +698,16 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 
                     await Update(update_item_sql, [itemData]);
                 } else if (!item.id) {
-                    // --- Insert new item if no id ---
                     let insertData = [[
                         liquidation_id,
-                        item.date,
-                        item.rt || "",
-                        item.store_name || "",
+                        item.date || "N/A",
+                        item.rt || "N/A",
+                        item.store_name || "N/A",
                         item.particulars,
-                        item.from || "",
-                        item.to || "",
-                        item.mode_of_transportation || "",
-                        parseFloat(item.amount),
+                        item.from || "N/A",
+                        item.to || "N/A",
+                        item.mode_of_transportation || "N/A",
+                        parseFloat(item.amount) || 0,
                     ]];
 
                     let insert_item_sql = InsertStatement(

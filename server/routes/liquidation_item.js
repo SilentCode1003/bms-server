@@ -176,6 +176,10 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
                         let select_liquidation_item_sql = SelectStatement(
                                 `SELECT
                                 li_liquidation_id as liquidation_id,
+                                li_date as date,
+                                li_rt as rt,
+                                li_store_name as store_name,
+                                li_particulars as particulars,
                                 li_from as started_from,
                                 li_to as ended_to,
                                 li_mode_of_transportation,
