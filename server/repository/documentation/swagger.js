@@ -103,15 +103,15 @@ const swaggerOptions = {
         description: "Localhost"
       },
       {
-        url: "http://192.168.40.43:5012",
+        url: "http://192.168.40.80:5012",
         description: "Staging Server"
       },
       {
-        url: "http://192.168.40.43:5012",
+        url: "http://192.168.40.80:5012",
         description: "Development Server"
       },
       {
-        url: "http://192.168.40.43:5012",
+        url: "http://192.168.40.80:5012",
         description: "Auth Server"
       }
     ],
@@ -128,7 +128,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://192.168.40.43:5000
+ *       - url: http://192.168.40.80:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
@@ -2130,7 +2130,6 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
-
 /**
  * @swagger
  * /liquidation_item/getliquidation_item_mode_of_transportation:
@@ -2160,6 +2159,110 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
-
 //#endregion
 
+//#region Liquidation Activity
+/**
+ * @swagger
+ * /liquidation_activity/getliquidation_activity:
+ *   get:
+ *     summary: Get all liquidation activities
+ *     description: Retrieves a list of all liquidation activities with their details
+ *     tags:
+ *       - Liquidation Activity
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved liquidation activities
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Liquidation activity ID
+ *                   liquidation_id:
+ *                     type: integer
+ *                     description: Associated liquidation ID
+ *                   action:
+ *                     type: string
+ *                     description: Liquidation activity action
+ *                   remarks:
+ *                     type: string
+ *                     description: Liquidation activity remarks
+ *                   receipts:
+ *                     type: string
+ *                     description: Liquidation activity receipts
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Liquidation activity creation date and time
+ *                   created_by:
+ *                     type: string
+ *                     description: Liquidation activity created by
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_activity/getliquidation_activity_by_id:
+ *   get:
+ *     summary: Get liquidation activity by ID
+ *     description: Retrieves a specific liquidation activity by its ID
+ *     tags:
+ *       - Liquidation Activity
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The liquidation activity ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved liquidation activity
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Liquidation activity ID
+ *                   liquidation_id:
+ *                     type: integer
+ *                     description: Associated liquidation ID
+ *                   action:
+ *                     type: string
+ *                     description: Liquidation activity action
+ *                   remarks:
+ *                     type: string
+ *                     description: Liquidation activity remarks
+ *                   receipts:
+ *                     type: string
+ *                     description: Liquidation activity receipts
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Liquidation activity creation date and time
+ *                   created_by:
+ *                     type: string
+ *                     description: Liquidation activity created by
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion

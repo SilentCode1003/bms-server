@@ -18,8 +18,8 @@ const jwt = require('jsonwebtoken');
 var router = express.Router();
 
 /* GET liquidation_activity page. */
-router.get('/', function(req, res, next) {
-  res.render('liquidation_activity', { title: 'Express' });
+router.get('/', function (req, res, next) {
+        res.render('liquidation_activity', { title: 'Express' });
 });
 
 module.exports = router;
@@ -29,15 +29,50 @@ router.get('/getliquidation_activity', async (req, res) => {
                 async function ProcessData() {
                         let select_liquidation_activity_sql = SelectStatement(
                                 `SELECT
-                                cra_id as id,
-                                cra_liquidation_id as liquidation_id,
-                                cra_action as action,
-                                cra_remarks as remarks,
-                                cra_signature as signature,
-                                cra_created_at as created_at,
-                                cra_requested_by as requested_by
+                                lia_id as id,
+                                lia_liquidation_id as liquidation_id,
+                                lia_action as action,
+                                lia_remarks as remarks,
+                                lia_receipts as receipts,
+                                lia_created_at as created_at,
+                                lia_created_by as created_by
                                 FROM liquidation_activity
                                 `
+                        );
+
+                        let result = await Select(select_liquidation_activity_sql);
+
+                        return res.status(200).json(result);
+                }
+
+                await ProcessData();
+        } catch (error) {
+                console.error("Error during login:", error);
+                res.status(500).json(JsonResposeError(error));
+        }
+});
+
+router.get('/getliquidation_activity_by_id', async (req, res) => {
+        try {
+                const { id } = req.query;
+
+                if (!id) {
+                        return res.status(400).json({ error: 'Liquidation ID is required' });
+                }
+
+                async function ProcessData() {
+                        let select_liquidation_activity_sql = SelectStatement(
+                                `SELECT
+                                lia_id as id,
+                                lia_liquidation_id as liquidation_id,
+                                lia_action as action,
+                                lia_remarks as remarks,
+                                lia_receipts as receipts,
+                                lia_created_at as created_at,
+                                lia_created_by as created_by
+                                FROM liquidation_activity
+                                WHERE lia_liquidation_id = ?
+                                `, [id]
                         );
 
                         let result = await Select(select_liquidation_activity_sql);
