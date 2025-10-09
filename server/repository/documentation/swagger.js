@@ -103,15 +103,15 @@ const swaggerOptions = {
         description: "Localhost"
       },
       {
-        url: "http://192.168.40.115:5012",
+        url: "http://192.168.40.80:5012",
         description: "Staging Server"
       },
       {
-        url: "http://192.168.40.115:5012",
+        url: "http://192.168.40.80:5012",
         description: "Development Server"
       },
       {
-        url: "http://192.168.40.115:5012",
+        url: "http://192.168.40.80:5012",
         description: "Auth Server"
       }
     ],
@@ -128,7 +128,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://localhost:5001
+ *       - url: http://192.168.40.80:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
@@ -895,7 +895,7 @@ module.exports = swaggerDocs;
  * /cash_request/getapproved_cash_request:
  *   get:
  *     summary: Get approved cash requests by status
- *     description: Retrieve a list of approved cash requests filtered by status (approved, completed, rejected).
+ *     description: Retrieve a list of approved cash requests filtered by status (approved, completed, rejected) and date range.
  *     tags:
  *       - Cash Request
  *     produces:
@@ -908,6 +908,20 @@ module.exports = swaggerDocs;
  *           enum: [approved, completed, rejected]
  *         required: false
  *         description: Filter cash requests by status
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Filter cash requests by start date
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Filter cash requests by end date
  *     responses:
  *       200:
  *         description: Successfully retrieved approved cash requests
@@ -974,7 +988,7 @@ module.exports = swaggerDocs;
  * /cash_request/getcash_request:
  *   get:
  *     summary: Get cash requests with items and activities
- *     description: Retrieve a list of cash requests with their associated items and activities. Can be filtered by status and employee_id.
+ *     description: Retrieve a list of cash requests with their associated items and activities. Can be filtered by status, employee_id, start_date, and end_date.
  *     tags:
  *       - Cash Request
  *     produces:
@@ -993,6 +1007,20 @@ module.exports = swaggerDocs;
  *           type: string
  *         required: false
  *         description: Filter cash requests by employee ID
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Filter cash requests by start date
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Filter cash requests by end date
  *     responses:
  *       200:
  *         description: Successfully retrieved cash requests with items and activities
@@ -1142,7 +1170,6 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
-
 /**
  * @swagger
  * /cash_request/createcash_request:
@@ -1277,6 +1304,78 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
+/**
+ * @swagger
+ * /cash_request/update_cash_request_rejected:
+ *   put:
+ *     summary: Update a previously rejected cash request
+ *     description: Update the details of a rejected cash request and set its status back to `PENDING`. It also removes the rejection activity log and adds an update activity record.
+ *     tags:
+ *       - Cash Request
+ *     consumes:
+ *       - application/json
+ *     produces:
+ *       - application/json
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cash_request_id
+ *               - updated_by
+ *             properties:
+ *               cash_request_id:
+ *                 type: integer
+ *                 description: ID of the cash request to update
+ *               date:
+ *                 type: string
+ *                 description: Updated date of the cash request
+ *               description:
+ *                 type: string
+ *                 description: Updated description of the cash request
+ *               team_lead:
+ *                 type: string
+ *                 description: Updated team lead for the cash request
+ *               amount:
+ *                 type: number
+ *                 description: Updated amount of the cash request
+ *               updated_by:
+ *                 type: string
+ *                 description: User who updated the request
+ *     responses:
+ *       200:
+ *         description: Successfully updated the rejected cash request and reset its status to pending
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Missing required fields or no fields to update
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Cash request not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
 //#endregion
 
 //#region Cash Request Activity API Documentation
@@ -1322,12 +1421,13 @@ module.exports = swaggerDocs;
 //#endregion
 
 //#region Liquidation API Documentation
+
 /**
  * @swagger
  * /liquidation/getcash_liquidation:
  *   get:
  *     summary: Get cash liquidations with items and filters
- *     description: Retrieve a list of cash liquidations with their items. Can be filtered by status and employee_id.
+ *     description: Retrieve a list of cash liquidations with their items. Can be filtered by status, employee_id, start date, and end date.
  *     tags:
  *       - Liquidation
  *     produces:
@@ -1346,6 +1446,20 @@ module.exports = swaggerDocs;
  *           type: string
  *         required: false
  *         description: Filter liquidations by employee ID
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Filter liquidations by start date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Filter liquidations by end date
  *     responses:
  *       200:
  *         description: Successfully retrieved cash liquidations
@@ -1468,8 +1582,8 @@ module.exports = swaggerDocs;
  * @swagger
  * /liquidation/getapproved_liquidation:
  *   get:
- *     summary: Get approved liquidations
- *     description: Retrieve all approved liquidation records along with their request items and activity logs.
+ *     summary: Get approved liquidations within a date range
+ *     description: Retrieve all approved liquidation records along with their request items and activity logs within a specific date range.
  *     tags:
  *       - Liquidation
  *     parameters:
@@ -1479,6 +1593,18 @@ module.exports = swaggerDocs;
  *           type: string
  *           enum: [pending, approved, verified, completed, rejected]
  *           description: If provided, only return liquidations with this status.
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           description: Start date of the date range. Defaults to current date if not provided.
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           description: End date of the date range. Defaults to current date if not provided.
  *     responses:
  *       200:
  *         description: Successful Operation
@@ -1491,15 +1617,9 @@ module.exports = swaggerDocs;
  *                 properties:
  *                   id:
  *                     type: integer
- *                   reference_id:
- *                     type: string
  *                   cr_reference_id:
  *                     type: string
  *                   cv_number:
- *                     type: string
- *                   description:
- *                     type: string
- *                   team_lead:
  *                     type: string
  *                   employee:
  *                     type: string
@@ -1509,7 +1629,15 @@ module.exports = swaggerDocs;
  *                     type: string
  *                   position:
  *                     type: string
- *                   request_date:
+ *                   description:
+ *                     type: string
+ *                   amount_obtained:
+ *                     type: number
+ *                   amount_expended:
+ *                     type: number
+ *                   reimburse_return:
+ *                     type: number
+ *                   created_date:
  *                     type: string
  *                     format: date-time
  *                   status:
@@ -1944,5 +2072,197 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_item_started_from:
+ *   get:
+ *     summary: Get distinct starting locations for liquidation items
+ *     description: Retrieve a list of distinct starting locations for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct starting locations for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   started_from:
+ *                     type: string
+ *                     description: Distinct starting location for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_item_ended_to:
+ *   get:
+ *     summary: Get distinct ending locations for liquidation items
+ *     description: Retrieve a list of distinct ending locations for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct ending locations for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   ended_to:
+ *                     type: string
+ *                     description: Distinct ending location for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_item_mode_of_transportation:
+ *   get:
+ *     summary: Get distinct mode of transportation for liquidation items
+ *     description: Retrieve a list of distinct modes of transportation for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct modes of transportation for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   mode_of_transportation:
+ *                     type: string
+ *                     description: Distinct mode of transportation for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
 //#endregion
 
+//#region Liquidation Activity
+/**
+ * @swagger
+ * /liquidation_activity/getliquidation_activity:
+ *   get:
+ *     summary: Get all liquidation activities
+ *     description: Retrieves a list of all liquidation activities with their details
+ *     tags:
+ *       - Liquidation Activity
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved liquidation activities
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Liquidation activity ID
+ *                   liquidation_id:
+ *                     type: integer
+ *                     description: Associated liquidation ID
+ *                   action:
+ *                     type: string
+ *                     description: Liquidation activity action
+ *                   remarks:
+ *                     type: string
+ *                     description: Liquidation activity remarks
+ *                   receipts:
+ *                     type: string
+ *                     description: Liquidation activity receipts
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Liquidation activity creation date and time
+ *                   created_by:
+ *                     type: string
+ *                     description: Liquidation activity created by
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_activity/getliquidation_activity_by_id:
+ *   get:
+ *     summary: Get liquidation activity by ID
+ *     description: Retrieves a specific liquidation activity by its ID
+ *     tags:
+ *       - Liquidation Activity
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The liquidation activity ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved liquidation activity
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: Liquidation activity ID
+ *                   liquidation_id:
+ *                     type: integer
+ *                     description: Associated liquidation ID
+ *                   action:
+ *                     type: string
+ *                     description: Liquidation activity action
+ *                   remarks:
+ *                     type: string
+ *                     description: Liquidation activity remarks
+ *                   receipts:
+ *                     type: string
+ *                     description: Liquidation activity receipts
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Liquidation activity creation date and time
+ *                   created_by:
+ *                     type: string
+ *                     description: Liquidation activity created by
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion

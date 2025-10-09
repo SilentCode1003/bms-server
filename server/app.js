@@ -15,6 +15,7 @@ var cash_requestRouter = require('./routes/cash_request');
 var cash_request_activityRouter = require('./routes/cash_request_activity');
 var liquidationRouter = require('./routes/liquidation');
 var liquidation_itemRouter = require('./routes/liquidation_item');
+var liquidation_activityRouter = require('./routes/liquidation_activity');
 
 
 const verifyjwt  = require('./repository/middleware/authentication');
@@ -50,6 +51,7 @@ app.use('/cash_request', cash_requestRouter);
 app.use('/cash_request_activity', cash_request_activityRouter);
 app.use('/liquidation', liquidationRouter);
 app.use('/liquidation_item', liquidation_itemRouter);
+app.use('/liquidation_activity', liquidation_activityRouter);
 
 
 // catch 404 and forward to error handler

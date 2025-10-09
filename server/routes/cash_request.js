@@ -14,7 +14,7 @@ const {
 } = require("../repository/helper/customhelper");
 const { CashRequests } = require("../repository/model/cash_request");
 const { Masters } = require("../repository/model/masters");
-const { Select, Insert, Update } = require("../repository/helper/dbconnect");
+const { Select, Insert, Update, Delete } = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
 const {
   EncrypterString,
@@ -199,8 +199,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
         FROM cash_request
         LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
         WHERE cr_employee_id = ?
-        AND (isnull(l_status) OR l_status IN ('pending', 'approved'))
-        AND not cr_status = 'rejected'`,
+        AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected'))`,
         [employee_id]
       );
 
@@ -222,11 +221,11 @@ router.get("/getexisting_cash_request", async (req, res) => {
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
-                                    cr_id AS id
-                                  FROM cash_request cr
-                                  LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
-                                  WHERE isnull(l.l_status)
-                                    AND cr_id = ?`,
+        cr_id AS id
+        FROM cash_request cr
+        LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
+        WHERE isnull(l.l_status)
+        AND cr_id = ?`,
         [id]
       );
 
@@ -264,6 +263,21 @@ router.post("/createcash_request", async (req, res) => {
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
+    
+    let select_liquidation_sql = "";
+      select_liquidation_sql = SelectStatement(
+        `SELECT cr_id
+        FROM cash_request
+        LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
+        WHERE cr_employee_id = ?
+        AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected'))`,
+        [employee_id]
+      );
+
+      let result2 = await Select(select_liquidation_sql);
+      if (result2.length > 0) {
+        return res.status(400).json(JsonResposeError("You cannot create a new cash request"));
+      }
 
     let status = "PENDING";
     let request_date = GetCurrentDatetime();
@@ -477,29 +491,77 @@ router.put("/updatecash_request", async (req, res) => {
   }
 });
 
-router.put("/updatecash_request_rejected", async (req, res) => {
-  try {
-    const { id, description, amount, team_lead } = req.body;
-    let created_at = GetCurrentDatetime();
-    if (!id || !description || !amount || !team_lead) {
-      return res.status(400).json(JsonResposeError("Missing required fields"));
-    }
-    let data = [[description, amount, team_lead, id]];
-    let update_sql = UpdateStatement(
-      CashRequests.cash_request.tablename,
-      [
-        CashRequests.cash_request.selectOptionsColumn.remarks,
-        CashRequests.cash_request.selectOptionsColumn.updated_by,
-      ],
-      [CashRequests.cash_request.selectOptionsColumn.id]
-    );
-    await Update(update_sql, data);
+router.put("/update_cash_request_rejected", async (req, res) => {
+        try {
+            const { cash_request_id, date, description, team_lead, amount, updated_by } = req.body;
+    
+            if (!cash_request_id) {
+                return res.status(400).json(JsonResposeError("Missing cash_request_id"));
+            }
+    
+            let updateData = [];
+            let updateFields = [];
+            
+            if (date !== undefined) {
+                updateData.push(date);
+                updateFields.push("cr_date = ?");
+            }
+            
+            if (description !== undefined) {
+                updateData.push(description);
+                updateFields.push("cr_description = ?");
+            }
+            
+            if (team_lead !== undefined) {
+                updateData.push(team_lead);
+                updateFields.push("cr_team_lead = ?");
+            }
+            
+            if (amount !== undefined) {
+                updateData.push(parseFloat(amount));
+                updateFields.push("cr_amount = ?");
+            }
+    
+            if (updateData.length === 0) {
+                return res.status(400).json(JsonResposeError("No fields to update"));
+            }
+    
+            updateData.push(cash_request_id);
+    
+            let updateQuery = `UPDATE cash_request SET ${updateFields.join(", ")}, cr_status = 'PENDING' WHERE cr_id = ?`;
+            
+            await Update(updateQuery, updateData);
 
-    res.status(200).json(JsonResponseSuccess());
-  } catch (error) {
-    console.log(error);
-    res.status(500).json(JsonResposeError(error));
-  }
+            await Delete(
+                `DELETE FROM cash_request_activity 
+                WHERE cra_cash_request_id = ? AND cra_action IN ('REQUESTED', 'APPROVED', 'RECEIVED', 'REJECTED')`,
+                [cash_request_id]
+            );
+    
+            const activityData = [
+                [
+                    cash_request_id,
+                    "REQUESTED",
+                    "Cash request was updated after rejection",
+                    GetCurrentDatetime(),
+                    updated_by
+                ]
+            ];
+    
+            const activityInsertSql = InsertStatement(
+                CashRequests.cash_request_activity.tablename,
+                CashRequests.cash_request_activity.prefix,
+                CashRequests.cash_request_activity.insertColumns
+            );
+    
+            await Insert(activityInsertSql, activityData);
+    
+
+            res.status(200).json(JsonResponseSuccess());
+        } catch (error) {
+            console.error("Error in update_cash_request_rejected:", error);
+            res.status(500).json(JsonResposeError(error));
+        }
 });
 
 // router.get('/getcash_request_by_id', async (req, res) => {
