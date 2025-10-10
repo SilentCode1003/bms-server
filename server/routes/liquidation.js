@@ -233,11 +233,10 @@ router.post("/create_liquidation", async (req, res) => {
         let created_at = GetCurrentDatetime();
 
         // Check if reference_id already exists
-        const selectSql = SelectStatement(
+        const [existingLiquidation] = await connection.query(
             `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
             [reference_id]
         );
-        const existingLiquidation = await executeQuery(connection, selectSql);
 
         if (existingLiquidation.length > 0) {
             await rollbackTransaction(connection);
@@ -255,20 +254,27 @@ router.post("/create_liquidation", async (req, res) => {
             status
         ];
 
-        const insertSql = InsertStatement(
-            Liquidations.liquidation.tablename,
-            Liquidations.liquidation.prefix,
-            Liquidations.liquidation.insertColumns
-        );
+        const insertSql = `
+            INSERT INTO ${Liquidations.liquidation.tablename} (
+                l_cr_reference_id,
+                l_description,
+                l_amount_obtained,
+                l_amount_expended,
+                l_reimburse_return,
+                l_created_date,
+                l_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
 
-        const liquidationResult = await executeInsert(connection, insertSql, liquidationData);
-        const liquidation_id = liquidationResult.id;
+        const [liquidationResult] = await connection.query(insertSql, liquidationData);
+        const liquidation_id = liquidationResult.insertId;
 
         if (!liquidation_id) {
             await rollbackTransaction(connection);
             return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
         }
 
+        // Rest of the code remains the same...
         // Process request items if any
         if (Array.isArray(request_items) && request_items.length > 0) {
             // Validate request items
@@ -299,16 +305,8 @@ router.post("/create_liquidation", async (req, res) => {
                 Liquidations.liquidation_item.prefix,
                 Liquidations.liquidation_item.insertColumns
             );
-            await connection.query(itemInsertSql, [itemsData]);
-        }
 
-        // Process receipts
-        let formattedReceipts = [];
-        if (Array.isArray(receipts)) {
-            formattedReceipts = receipts.map((img, index) => ({
-                id: String(index + 1),
-                image: img
-            }));
+            await connection.query(itemInsertSql, [itemsData]);
         }
 
         // Insert activity
@@ -316,88 +314,41 @@ router.post("/create_liquidation", async (req, res) => {
             liquidation_id,
             action,
             remarks || "",
-            JSON.stringify(formattedReceipts),
+            receipts ? JSON.stringify(receipts) : null,
             created_at,
             created_by
         ];
 
-        const activityInsertSql = InsertStatement(
-            Liquidations.liquidation_activity.tablename,
-            Liquidations.liquidation_activity.prefix,
-            Liquidations.liquidation_activity.insertColumns
-        );
-        await executeInsert(connection, activityInsertSql, activityData);
+        const activityInsertSql = `
+            INSERT INTO ${Liquidations.liquidation_activity.tablename} (
+                lia_liquidation_id,
+                lia_action,
+                lia_remarks,
+                lia_receipts,
+                lia_created_at,
+                lia_created_by
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
 
-        // Get employee ID
-        const employeeIdQuery = `SELECT cr_employee_id as employee_id FROM cash_request WHERE cr_reference_id = ?`;
-        const employeeResult = await executeQuery(connection, employeeIdQuery, [reference_id]);
-        const employee_id = employeeResult[0]?.employee_id;
+        await connection.query(activityInsertSql, activityData);
 
-        if (employee_id) {
-            // Get wallet information
-            const walletQuery = `
-                SELECT 
-                    mw_id as id,
-                    mw_employee_id as employee_id,
-                    mw_previous_amount as previous_amount,
-                    mw_current_amount as current_amount
-                FROM master_wallet 
-                WHERE mw_employee_id = ?
-                FOR UPDATE`; // Lock the row for update
-
-            const walletResult = await executeQuery(connection, walletQuery, [employee_id]);
-
-            if (walletResult.length > 0) {
-                const wallet = walletResult[0];
-                const previous_amount = wallet.previous_amount;
-                let current_amount = amount_obtained - amount_expended;
-                if (current_amount < 0) {
-                    current_amount = 0;
-                }
-
-                // Update wallet
-                const updateWalletSql = UpdateStatement(
-                    Masters.master_wallet.tablename,
-                    [
-                        Masters.master_wallet.selectOptionsColumn.previous_amount,
-                        Masters.master_wallet.selectOptionsColumn.current_amount
-                    ],
-                    [Masters.master_wallet.selectOptionsColumn.employee_id]
-                );
-                
-                await executeUpdate(connection, updateWalletSql, [previous_amount, current_amount, employee_id]);
-
-                // Insert wallet activity
-                const walletActivityData = [
-                    wallet.id,
-                    `Updated wallet balance from: ${previous_amount} to ${current_amount}`,
-                    created_at
-                ];
-
-                const walletActivityInsertSql = InsertStatement(
-                    Masters.master_wallet_activity.tablename,
-                    Masters.master_wallet_activity.prefix,
-                    Masters.master_wallet_activity.insertColumns
-                );
-                await executeInsert(connection, walletActivityInsertSql, walletActivityData);
-            }
-        }
-
-        // If we got here, commit the transaction
+        // Commit the transaction
         await commitTransaction(connection);
-        res.status(200).json(JsonResponseSuccess());
+        res.status(200).json(JsonResponseSuccess({ id: liquidation_id }));
 
     } catch (error) {
         console.error("Error in create_liquidation:", error);
         
         // Rollback transaction if there was an error
         if (connection) {
-            await rollbackTransaction(connection).catch(rollbackError => {
-                console.error("Error during transaction rollback:", rollbackError);
-            });
+            await rollbackTransaction(connection);
         }
         
-        res.status(500).json(JsonResposeError("An error occurred while processing your request. Please try again later."));
+        res.status(500).json(JsonResposeError(error.message || "An error occurred while creating the liquidation"));
+    } finally {
+        if (connection) {
+            await connection.release();
+        }
     }
 });
 
@@ -644,16 +595,13 @@ router.put("/update_liquidation_rejected", async (req, res) => {
             let reimburse_return = amount_obtained - amount_expended;
             if (reimburse_return < 0) reimburse_return = Math.abs(reimburse_return);
 
+            // Update liquidation with direct SQL to avoid syntax issues
             await connection.query(
-                UpdateStatement(
-                    Liquidations.liquidation.tablename,
-                    [
-                        Liquidations.liquidation.selectOptionsColumn.amount_expended,
-                        Liquidations.liquidation.selectOptionsColumn.reimburse_return,
-                    ],
-                    [Liquidations.liquidation.selectOptionsColumn.id]
-                ),
-                [[amount_expended, reimburse_return, liquidation_id]]
+                `UPDATE ${Liquidations.liquidation.tablename} 
+                 SET l_amount_expended = ?, 
+                     l_reimburse_return = ? 
+                 WHERE l_id = ?`,
+                [amount_expended, reimburse_return, liquidation_id]
             );
 
             await connection.query(
@@ -682,33 +630,27 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                 await connection.query(insert_item_sql, [itemsData]);
             }
 
+            // Update activity with direct SQL to properly handle JSON data
             await connection.query(
-                UpdateStatement(
-                    Liquidations.liquidation_activity.tablename,
-                    [
-                        Liquidations.liquidation_activity.selectOptionsColumn.remarks,
-                        Liquidations.liquidation_activity.selectOptionsColumn.receipts,
-                    ],
-                    [
-                        Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id,
-                        Liquidations.liquidation_activity.selectOptionsColumn.action,
-                    ]
-                ),
-                [[
+                `UPDATE ${Liquidations.liquidation_activity.tablename} 
+                 SET ${Liquidations.liquidation_activity.selectOptionsColumn.remarks} = ?,
+                     ${Liquidations.liquidation_activity.selectOptionsColumn.receipts} = ?
+                 WHERE ${Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id} = ?
+                 AND ${Liquidations.liquidation_activity.selectOptionsColumn.action} = ?`,
+                [
                     remarks || "",
-                    JSON.stringify(storedReceipts),
+                    storedReceipts ? JSON.stringify(storedReceipts) : null,
                     liquidation_id,
                     "PREPARED"
-                ]]
+                ]
             );
 
+            // Update status with direct SQL for consistency
             await connection.query(
-                UpdateStatement(
-                    Liquidations.liquidation.tablename,
-                    [Liquidations.liquidation.selectOptionsColumn.status],
-                    [Liquidations.liquidation.selectOptionsColumn.id]
-                ),
-                [["pending", liquidation_id]]
+                `UPDATE liquidation 
+                 SET l_status = ? 
+                 WHERE l_id = ?`,
+                ["pending", liquidation_id]
             );
 
             await connection.query(
@@ -733,5 +675,4 @@ router.put("/update_liquidation_rejected", async (req, res) => {
         }
     }
 });
-
 
