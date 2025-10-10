@@ -224,7 +224,6 @@ router.post("/create_liquidation", async (req, res) => {
         const { reference_id, description, amount_obtained, amount_expended, reimburse_return, request_items, remarks, receipts, created_by } = req.body;
         console.log("create liquidation", req.body);
 
-        // Start transaction
         connection = await beginTransaction();
 
         let status = "PENDING";
@@ -232,7 +231,6 @@ router.post("/create_liquidation", async (req, res) => {
         let action = "PREPARED";
         let created_at = GetCurrentDatetime();
 
-        // Check if reference_id already exists
         const [existingLiquidation] = await connection.query(
             `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
             [reference_id]
@@ -243,7 +241,6 @@ router.post("/create_liquidation", async (req, res) => {
             return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
         }
 
-        // Insert liquidation
         const liquidationData = [
             reference_id, 
             description, 
@@ -274,10 +271,7 @@ router.post("/create_liquidation", async (req, res) => {
             return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
         }
 
-        // Rest of the code remains the same...
-        // Process request items if any
         if (Array.isArray(request_items) && request_items.length > 0) {
-            // Validate request items
             for (const [index, item] of request_items.entries()) {
                 if (!item.date || !item.particulars) {
                     await rollbackTransaction(connection);
@@ -287,7 +281,6 @@ router.post("/create_liquidation", async (req, res) => {
                 }
             }
 
-            // Insert request items
             const itemsData = request_items.map(item => [
                 liquidation_id,
                 item.date || "N/A",
@@ -309,7 +302,6 @@ router.post("/create_liquidation", async (req, res) => {
             await connection.query(itemInsertSql, [itemsData]);
         }
 
-        // Insert activity
         const activityData = [
             liquidation_id,
             action,
@@ -332,14 +324,12 @@ router.post("/create_liquidation", async (req, res) => {
 
         await connection.query(activityInsertSql, activityData);
 
-        // Commit the transaction
         await commitTransaction(connection);
         res.status(200).json(JsonResponseSuccess({ id: liquidation_id }));
 
     } catch (error) {
         console.error("Error in create_liquidation:", error);
         
-        // Rollback transaction if there was an error
         if (connection) {
             await rollbackTransaction(connection);
         }
@@ -355,7 +345,7 @@ router.post("/create_liquidation", async (req, res) => {
 router.put("/update_liquidation", async (req, res) => {
     try {
         const { status, id, remarks, receipts, created_by } = req.body;
-        console.log("Update Liquidation", req.body)
+
         let created_at = GetCurrentDatetime();
         if (!id || !status) {
             return res.status(400).json(JsonResposeError("Missing required fields"));
@@ -595,7 +585,6 @@ router.put("/update_liquidation_rejected", async (req, res) => {
             let reimburse_return = amount_obtained - amount_expended;
             if (reimburse_return < 0) reimburse_return = Math.abs(reimburse_return);
 
-            // Update liquidation with direct SQL to avoid syntax issues
             await connection.query(
                 `UPDATE ${Liquidations.liquidation.tablename} 
                  SET l_amount_expended = ?, 
@@ -630,7 +619,6 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                 await connection.query(insert_item_sql, [itemsData]);
             }
 
-            // Update activity with direct SQL to properly handle JSON data
             await connection.query(
                 `UPDATE ${Liquidations.liquidation_activity.tablename} 
                  SET ${Liquidations.liquidation_activity.selectOptionsColumn.remarks} = ?,
@@ -645,7 +633,6 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                 ]
             );
 
-            // Update status with direct SQL for consistency
             await connection.query(
                 `UPDATE liquidation 
                  SET l_status = ? 
