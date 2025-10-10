@@ -1,91 +1,114 @@
 const { query } = require("express");
-const { createConnection } = require("mysql2");
+const { createPool } = require("mysql2/promise");
 const { EncrypterString, DecrypterString } = require("./crytography");
 require("dotenv").config();
 
 console.log(EncrypterString("#Ebedaf19dd0d"));
 
 
-const connection = createConnection({
+// Create a connection pool instead of a single connection
+const pool = createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: DecrypterString(process.env.DB_PASSWORD),
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  connectionLimit: 10,
+  waitForConnections: true,
+  queueLimit: 0
 });
 
-exports.CheckConnection = () => {
-  return new Promise((resolve, reject) => {
-    connection.connect((err) => {
-      if (err) {
-        console.log("Error connecting to the database:", err);
-        reject(err);
-      } else {
-        console.log("Connected to the database!");
-        resolve(true);
-      }
-    });
-  });
+// Get a connection from the pool
+exports.getConnection = async () => {
+  return await pool.getConnection();
 };
 
-exports.Select = (query) => {
-  return new Promise((resolve, reject) => {
-    connection.query(query, (err, result) => {
-      if (err) {
-        console.log("Error running query:", err);
-        reject(err);
-      } else {
-        // console.log("Query executed successfully:", result);
-        resolve(result);
-      }
-    });
-  });
+exports.CheckConnection = async () => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.ping();
+    console.log("Connected to the database!");
+    return true;
+  } catch (error) {
+    console.error("Error connecting to the database:", error);
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-exports.Update = (query, data) => {
-  return new Promise((resolve, reject) => {
-    // Flatten the data array if it's nested
+// Transaction methods
+exports.beginTransaction = async () => {
+  const connection = await pool.getConnection();
+  await connection.beginTransaction();
+  return connection;
+};
+
+exports.commitTransaction = async (connection) => {
+  try {
+    await connection.commit();
+  } finally {
+    connection.release();
+  }
+};
+
+exports.rollbackTransaction = async (connection) => {
+  try {
+    await connection.rollback();
+  } finally {
+    connection.release();
+  }
+};
+
+exports.Select = async (query, params = []) => {
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.query(query, params);
+    return rows;
+  } catch (error) {
+    console.error('Error in Select:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+exports.Update = async (query, data) => {
+  const connection = await pool.getConnection();
+  try {
     const flatData = Array.isArray(data[0]) ? data[0] : data;
-    
-    connection.query(query, flatData, (err, result) => {
-      if (err) {
-        console.log("Error running query:", err);
-        console.log("Query:", query);
-        console.log("Data:", flatData);
-        reject(err);
-      } else {
-        //console.log("Query executed successfully:", result);
-        resolve(result.affectedRows);
-      }
-    });
-  });
+    const [result] = await connection.query(query, flatData);
+    return result.affectedRows;
+  } catch (error) {
+    console.error('Error in Update:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-exports.Insert = (query, data) => {
-  return new Promise((resolve, reject) => {
-    connection.query(query, [data], (err, result) => {
-      if (err) {
-        console.log("Error running query:", err);
-        reject(err);
-      } else {
-        //console.log("Query executed successfully:", result);
-        resolve([{ rows: result.affectedRows, id: result.insertId }]);
-      }
-    });
-  });
+exports.Insert = async (query, data) => {
+  const connection = await pool.getConnection();
+  try {
+    const [result] = await connection.query(query, [data]);
+    return { rows: result.affectedRows, id: result.insertId };
+  } catch (error) {
+    console.error('Error in Insert:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-exports.Delete = (query, params = []) => {
-  return new Promise((resolve, reject) => {
-    connection.query(query, params, (err, result) => {
-      if (err) {
-        console.log("Error running delete query:", err);
-        console.log("Query:", query);
-        console.log("Params:", params);
-        reject(err);
-      } else {
-        resolve(result.affectedRows);
-      }
-    });
-  });
+exports.Delete = async (query, params = []) => {
+  const connection = await pool.getConnection();
+  try {
+    const [result] = await connection.query(query, params);
+    return result.affectedRows;
+  } catch (error) {
+    console.error('Error in Delete:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
 };

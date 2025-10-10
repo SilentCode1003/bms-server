@@ -103,15 +103,15 @@ const swaggerOptions = {
         description: "Localhost"
       },
       {
-        url: "http://192.168.40.80:5012",
+        url: "http://192.168.40.142:5012",
         description: "Staging Server"
       },
       {
-        url: "http://192.168.40.80:5012",
+        url: "http://192.168.40.142:5012",
         description: "Development Server"
       },
       {
-        url: "http://192.168.40.80:5012",
+        url: "http://192.168.40.142:5012",
         description: "Auth Server"
       }
     ],
@@ -128,7 +128,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://192.168.40.80:5000
+ *       - url: http://192.168.40.142:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
@@ -1735,7 +1735,7 @@ module.exports = swaggerDocs;
  *                 example: 5000
  *               amount_expended:
  *                 type: number
- *                 example: 4800
+ *                 example: 41240
  *               reimburse_return:
  *                 type: number
  *                 example: 200

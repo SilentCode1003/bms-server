@@ -217,200 +217,135 @@ router.get('/getapproved_liquidation', async (req, res) => {
 // });
 
 router.post("/create_liquidation", async (req, res) => {
+    const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
+    let connection;
+    
     try {
         const { reference_id, description, amount_obtained, amount_expended, reimburse_return, request_items, remarks, receipts, created_by } = req.body;
-console.log("create liquidation", req.body);
+        console.log("create liquidation", req.body);
+
+        connection = await beginTransaction();
 
         let status = "PENDING";
         let request_date = GetCurrentDatetime();
         let action = "PREPARED";
         let created_at = GetCurrentDatetime();
-        if (!Array.isArray(request_items) || request_items.length === 0) {
-            let select_sql = SelectStatement(
-                `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
-                [reference_id]
-            );
-            let result = await Select(select_sql);
 
-            if (result.length > 0) {
-                return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
-            }
+        const [existingLiquidation] = await connection.query(
+            `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
+            [reference_id]
+        );
 
-            let data = [
-                [reference_id, description, amount_obtained, amount_expended, reimburse_return, request_date, status],
-            ];
-
-            let insert_sql = InsertStatement(
-                Liquidations.liquidation.tablename,
-                Liquidations.liquidation.prefix,
-                Liquidations.liquidation.insertColumns
-            );
-
-            let liquidationResult = await Insert(insert_sql, data);
-            let liquidation_id = liquidationResult[0]?.id || liquidationResult.id;
-            if (!liquidation_id) {
-                return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
-            }
-            // return res.status(400).json(JsonResposeError("At least one request item is required"));
-            res.status(200).json(JsonResponseSuccess());
+        if (existingLiquidation.length > 0) {
+            await rollbackTransaction(connection);
+            return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
         }
-        else {
-            let itemsData = [];
-            for (const [index, item] of request_items.entries()) {
 
+        const liquidationData = [
+            reference_id, 
+            description, 
+            amount_obtained, 
+            amount_expended, 
+            reimburse_return, 
+            request_date, 
+            status
+        ];
+
+        const insertSql = `
+            INSERT INTO ${Liquidations.liquidation.tablename} (
+                l_cr_reference_id,
+                l_description,
+                l_amount_obtained,
+                l_amount_expended,
+                l_reimburse_return,
+                l_created_date,
+                l_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const [liquidationResult] = await connection.query(insertSql, liquidationData);
+        const liquidation_id = liquidationResult.insertId;
+
+        if (!liquidation_id) {
+            await rollbackTransaction(connection);
+            return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
+        }
+
+        if (Array.isArray(request_items) && request_items.length > 0) {
+            for (const [index, item] of request_items.entries()) {
                 if (!item.date || !item.particulars) {
+                    await rollbackTransaction(connection);
                     return res.status(400).json(
-                        JsonResposeError(`Request item at index ${index} is missing required fields (date, particulars, amount).`)
+                        JsonResposeError(`Request item at index ${index} is missing required fields (date, particulars).`)
                     );
                 }
             }
-            await ProcessData();
+
+            const itemsData = request_items.map(item => [
+                liquidation_id,
+                item.date || "N/A",
+                item.rt || "N/A",
+                item.store_name || "N/A",
+                item.particulars || "N/A",
+                (item.from || "").replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
+                (item.to || "").replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
+                (item.mode_of_transportation || "").replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
+                parseFloat(item.amount) || 0
+            ]);
+
+            const itemInsertSql = InsertStatement(
+                Liquidations.liquidation_item.tablename,
+                Liquidations.liquidation_item.prefix,
+                Liquidations.liquidation_item.insertColumns
+            );
+
+            await connection.query(itemInsertSql, [itemsData]);
         }
 
-        async function ProcessData() {
-            let select_sql = SelectStatement(
-                `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
-                [reference_id]
-            );
-            let result = await Select(select_sql);
+        const activityData = [
+            liquidation_id,
+            action,
+            remarks || "",
+            receipts ? JSON.stringify(receipts) : null,
+            created_at,
+            created_by
+        ];
 
-            if (result.length > 0) {
-                return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
-            }
+        const activityInsertSql = `
+            INSERT INTO ${Liquidations.liquidation_activity.tablename} (
+                lia_liquidation_id,
+                lia_action,
+                lia_remarks,
+                lia_receipts,
+                lia_created_at,
+                lia_created_by
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
 
-            let data = [
-                [reference_id, description, amount_obtained, amount_expended, reimburse_return, request_date, status],
-            ];
+        await connection.query(activityInsertSql, activityData);
 
-            let insert_sql = InsertStatement(
-                Liquidations.liquidation.tablename,
-                Liquidations.liquidation.prefix,
-                Liquidations.liquidation.insertColumns
-            );
-
-            let liquidationResult = await Insert(insert_sql, data);
-            let liquidation_id = liquidationResult[0]?.id || liquidationResult.id;
-            if (!liquidation_id) {
-                return res.status(400).json(JsonResposeError("Failed to insert liquidation"));
-            }
-
-            let itemsData = [];
-            for (const item of request_items) {
-               
-                    itemsData.push([
-                        liquidation_id,
-                        item.date || "N/A",
-                        item.rt || "N/A",
-                        item.store_name || "N/A",
-                        item.particulars || "N/A",
-                        item.from.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
-                        item.to.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
-                        item.mode_of_transportation.replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
-                        parseFloat(item.amount) || 0
-                    ]);
-            }
-
-            if (itemsData.length === 0) {
-                return res.status(400).json(JsonResposeError("No valid request items provided"));
-            }
-
-            if (itemsData.length > 0) {
-                let item_insert_sql = InsertStatement(
-                    Liquidations.liquidation_item.tablename,
-                    Liquidations.liquidation_item.prefix,
-                    Liquidations.liquidation_item.insertColumns
-                );
-                await Insert(item_insert_sql, itemsData);
-            }
-
-            let formattedReceipts = [];
-            if (Array.isArray(receipts)) {
-                formattedReceipts = receipts.map((img, index) => ({
-                    id: String(index + 1),
-                    image: img
-                }));
-            }
-
-            let activityData = [
-                [
-                    liquidation_id,
-                    action,
-                    remarks || "",
-                    JSON.stringify(formattedReceipts),
-                    created_at,
-                    created_by
-                ]
-            ];
-            let activity_insert_sql = InsertStatement(
-                Liquidations.liquidation_activity.tablename,
-                Liquidations.liquidation_activity.prefix,
-                Liquidations.liquidation_activity.insertColumns
-            );
-            await Insert(activity_insert_sql, activityData);
-
-            let select_emmployee_id = SelectStatement(
-                `SELECT
-                cr_employee_id as employee_id
-                FROM cash_request
-                WHERE cr_reference_id = "${reference_id}"`
-            );
-            let employee_id = await Select(select_emmployee_id);
-            employee_id = employee_id[0]?.employee_id;
-
-            let select_wallet_sql = SelectStatement(
-                `SELECT
-                mw_id as id,
-                mw_employee_id as employee_id,
-                mw_previous_amount as previous_amount,
-                mw_current_amount as current_amount
-                FROM master_wallet
-                WHERE mw_employee_id = ${employee_id}`
-            );
-            let walletResult = await Select(select_wallet_sql);
-
-            let previous_amount = walletResult[0]?.previous_amount;
-            let current_amount = amount_obtained - amount_expended;
-            if (current_amount < 0) {
-                current_amount = 0;
-            }
-
-            let wallet_data = [previous_amount, current_amount, employee_id];
-            let update_wallet_sql = UpdateStatement(
-                Masters.master_wallet.tablename,
-                [Masters.master_wallet.selectOptionsColumn.previous_amount,
-                Masters.master_wallet.selectOptionsColumn.current_amount],
-                [Masters.master_wallet.selectOptionsColumn.employee_id]
-            );
-            await Update(update_wallet_sql, [wallet_data]);
-
-            let wallet_activityData = [
-                [
-                    walletResult[0]?.id,
-                    `Updated wallet balance from:${previous_amount} to ${current_amount}`,
-                    created_at
-                ]
-            ];
-            let wallet_activity_insert_sql = InsertStatement(
-                Masters.master_wallet_activity.tablename,
-                Masters.master_wallet_activity.prefix,
-                Masters.master_wallet_activity.insertColumns
-            );
-            await Insert(wallet_activity_insert_sql, wallet_activityData);
-
-
-            res.status(200).json(JsonResponseSuccess());
-        }
+        await commitTransaction(connection);
+        res.status(200).json(JsonResponseSuccess({ id: liquidation_id }));
 
     } catch (error) {
-        console.log(error);
-        res.status(500).json(JsonResposeError(error));
+        console.error("Error in create_liquidation:", error);
+        
+        if (connection) {
+            await rollbackTransaction(connection);
+        }
+        
+        res.status(500).json(JsonResposeError(error.message || "An error occurred while creating the liquidation"));
+    } finally {
+        if (connection) {
+            await connection.release();
+        }
     }
 });
 
 router.put("/update_liquidation", async (req, res) => {
     try {
         const { status, id, remarks, receipts, created_by } = req.body;
-        console.log("Update Liquidation", req.body)
+
         let created_at = GetCurrentDatetime();
         if (!id || !status) {
             return res.status(400).json(JsonResposeError("Missing required fields"));
@@ -600,174 +535,131 @@ router.put("/update_liquidation", async (req, res) => {
 });
 
 router.put("/update_liquidation_rejected", async (req, res) => {
+    const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
+    let connection;
+    
     try {
         const { liquidation_id, items, remarks, receipts } = req.body;
         console.log("update liquidation rejected", req.body);
-        for (const item of items) {
-            if (!item.date || !item.particulars) {
-                return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
-            }
-        }
+
         if (!liquidation_id) {
             return res.status(400).json(JsonResposeError("Missing liquidation_id"));
         }
 
-        let storedReceipts = [];
-        if (Array.isArray(receipts)) {
-            storedReceipts = receipts.map((r, index) => ({
-                id: r.id || (index + 1).toString(),
-                image: r.image || ""
-            }));
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json(JsonResposeError("At least one item is required"));
         }
 
-        let select_liquidation = SelectStatement(
-            `SELECT
-          l_amount_obtained as amount_obtained
-          FROM liquidation
-          WHERE l_id = ?`,
-            [liquidation_id]
-        );
-        let liquidation = await Select(select_liquidation);
-        let amount_obtained = liquidation[0]?.amount_obtained || 0;
-
-        let amount_expended = 0;
-        if (Array.isArray(items) && items.length > 0) {
-            amount_expended = items.reduce((sum, item) => {
-                return sum + (parseFloat(item.amount) || 0);
-            }, 0);
-        }
-
-        let reimburse_return = amount_obtained - amount_expended;
-
-        if (reimburse_return < 0) (reimburse_return *= -1);
-
-        let data = [amount_expended, reimburse_return, liquidation_id];
-        let update_liquidation_sql = UpdateStatement(
-            Liquidations.liquidation.tablename,
-            [
-                Liquidations.liquidation.selectOptionsColumn.amount_expended,
-                Liquidations.liquidation.selectOptionsColumn.reimburse_return,
-            ],
-            [Liquidations.liquidation.selectOptionsColumn.id]
-        );
-        await Update(update_liquidation_sql, [data]);
-
-        let existingItems = await Select(
-            SelectStatement(
-                `SELECT li_id FROM liquidation_item WHERE li_liquidation_id = ?`,
-                [liquidation_id]
-            )
-        );
-        let existingIds = existingItems.map(row => row.li_id);
-
-        let incomingIds = items && Array.isArray(items) ? items.map(i => i.id).filter(id => id) : [];
-
-        if (Array.isArray(items) && items.length > 0) {
-            for (const item of items) {
-                // if (!item.date || !item.particulars || !item.amount) {
-                //     return res.status(400).json(JsonResposeError("Each item must have id, date, particulars, and amount"));
-                // }
-
-                if (item.id && existingIds.includes(item.id)) {
-                    let itemData = [
-                        item.date || "N/A",
-                        item.rt || "N/A",
-                        item.store_name || "N/A",
-                        item.particulars,
-                        item.from || "N/A",
-                        item.to || "N/A",
-                        item.mode_of_transportation || "N/A",
-                        parseFloat(item.amount) || 0,
-                        item.id,
-                    ];
-
-                    let update_item_sql = UpdateStatement(
-                        Liquidations.liquidation_item.tablename,
-                        [
-                            Liquidations.liquidation_item.selectOptionsColumn.date,
-                            Liquidations.liquidation_item.selectOptionsColumn.rt,
-                            Liquidations.liquidation_item.selectOptionsColumn.store_name,
-                            Liquidations.liquidation_item.selectOptionsColumn.particulars,
-                            Liquidations.liquidation_item.selectOptionsColumn.from,
-                            Liquidations.liquidation_item.selectOptionsColumn.to,
-                            Liquidations.liquidation_item.selectOptionsColumn.mode_of_transportation,
-                            Liquidations.liquidation_item.selectOptionsColumn.amount,
-                        ],
-                        [Liquidations.liquidation_item.selectOptionsColumn.id]
-                    );
-
-                    await Update(update_item_sql, [itemData]);
-                } else if (!item.id) {
-                    let insertData = [[
-                        liquidation_id,
-                        item.date || "N/A",
-                        item.rt || "N/A",
-                        item.store_name || "N/A",
-                        item.particulars,
-                        item.from || "N/A",
-                        item.to || "N/A",
-                        item.mode_of_transportation || "N/A",
-                        parseFloat(item.amount) || 0,
-                    ]];
-
-                    let insert_item_sql = InsertStatement(
-                        Liquidations.liquidation_item.tablename,
-                        Liquidations.liquidation_item.prefix,
-                        Liquidations.liquidation_item.insertColumns
-                    );
-
-
-                    await Insert(insert_item_sql, insertData);
-                }
+        for (const item of items) {
+            if (!item.date || !item.particulars) {
+                return res.status(400).json(
+                    JsonResposeError("Each item must have date, particulars, and amount")
+                );
             }
         }
 
-        let idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
-        if (idsToDelete.length > 0) {
-            await Delete(
-                `DELETE FROM liquidation_item WHERE li_id IN (${idsToDelete.map(() => "?").join(",")})`,
-                idsToDelete
+        connection = await beginTransaction();
+
+        try {
+            let storedReceipts = Array.isArray(receipts)
+                ? receipts.map((r, i) => ({
+                      id: r.id || (i + 1).toString(),
+                      image: r.image || "",
+                  }))
+                : [];
+
+            const [liquidation] = await connection.query(
+                `SELECT l_amount_obtained AS amount_obtained 
+                 FROM liquidation 
+                 WHERE l_id = ? 
+                 FOR UPDATE`,
+                [liquidation_id]
             );
+
+            const amount_obtained = liquidation?.[0]?.amount_obtained || 0;
+
+            const amount_expended = items.reduce(
+                (sum, i) => sum + (parseFloat(i.amount) || 0),
+                0
+            );
+            let reimburse_return = amount_obtained - amount_expended;
+            if (reimburse_return < 0) reimburse_return = Math.abs(reimburse_return);
+
+            await connection.query(
+                `UPDATE ${Liquidations.liquidation.tablename} 
+                 SET l_amount_expended = ?, 
+                     l_reimburse_return = ? 
+                 WHERE l_id = ?`,
+                [amount_expended, reimburse_return, liquidation_id]
+            );
+
+            await connection.query(
+                `DELETE FROM liquidation_item WHERE li_liquidation_id = ?`,
+                [liquidation_id]
+            );
+
+            const itemsData = items.map((item) => [
+                liquidation_id,
+                item.date || "N/A",
+                item.rt || "N/A",
+                item.store_name || "N/A",
+                item.particulars || "N/A",
+                item.from || "N/A",
+                item.to || "N/A",
+                item.mode_of_transportation || "N/A",
+                parseFloat(item.amount) || 0,
+            ]);
+
+            if (itemsData.length > 0) {
+                const insert_item_sql = InsertStatement(
+                    Liquidations.liquidation_item.tablename,
+                    Liquidations.liquidation_item.prefix,
+                    Liquidations.liquidation_item.insertColumns
+                );
+                await connection.query(insert_item_sql, [itemsData]);
+            }
+
+            await connection.query(
+                `UPDATE ${Liquidations.liquidation_activity.tablename} 
+                 SET ${Liquidations.liquidation_activity.selectOptionsColumn.remarks} = ?,
+                     ${Liquidations.liquidation_activity.selectOptionsColumn.receipts} = ?
+                 WHERE ${Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id} = ?
+                 AND ${Liquidations.liquidation_activity.selectOptionsColumn.action} = ?`,
+                [
+                    remarks || "",
+                    storedReceipts ? JSON.stringify(storedReceipts) : null,
+                    liquidation_id,
+                    "PREPARED"
+                ]
+            );
+
+            await connection.query(
+                `UPDATE liquidation 
+                 SET l_status = ? 
+                 WHERE l_id = ?`,
+                ["pending", liquidation_id]
+            );
+
+            await connection.query(
+                `DELETE FROM liquidation_activity 
+                 WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`,
+                [liquidation_id]
+            );
+
+            await commitTransaction(connection);
+            res.status(200).json(JsonResponseSuccess());
+
+        } catch (error) {
+            await rollbackTransaction(connection);
+            throw error;
         }
-
-        let activityData = [
-            remarks || "",
-            JSON.stringify(storedReceipts),
-            liquidation_id,
-            "PREPARED"
-        ];
-        let update_activity_sql = UpdateStatement(
-            Liquidations.liquidation_activity.tablename,
-            [
-                Liquidations.liquidation_activity.selectOptionsColumn.remarks,
-                Liquidations.liquidation_activity.selectOptionsColumn.receipts,
-            ],
-            [
-                Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id,
-                Liquidations.liquidation_activity.selectOptionsColumn.action,
-            ]
-        );
-
-        await Update(update_activity_sql, [activityData]);
-
-        let statusData = ["pending", liquidation_id];
-        let update_status_sql = UpdateStatement(
-            Liquidations.liquidation.tablename,
-            [Liquidations.liquidation.selectOptionsColumn.status],
-            [Liquidations.liquidation.selectOptionsColumn.id]
-        );
-        await Update(update_status_sql, [statusData]);
-
-        await Delete(
-            `DELETE FROM liquidation_activity WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`,
-            [liquidation_id]
-        );
-
-        res.status(200).json(JsonResponseSuccess());
     } catch (error) {
         console.error("Error in update_liquidation_rejected:", error);
-        res.status(500).json(JsonResposeError(error));
+        res.status(500).json(JsonResposeError(error.message || "An error occurred while processing your request."));
+    } finally {
+        if (connection) {
+            await connection.release();
+        }
     }
 });
-
 
