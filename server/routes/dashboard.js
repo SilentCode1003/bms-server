@@ -124,10 +124,12 @@ router.get('/get_finance_charts', async (req, res) => {
                 `SELECT
                 (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'pending') as pending_requests,
                 (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'approved' OR cr_status = 'completed') as approved_requests,
+                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'completed') as completed_requests,
                 (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'rejected') as rejected_requests,
                 (SELECT COUNT(*) FROM liquidation WHERE l_status = 'pending') as pending_liquidations,
                 (SELECT COUNT(*) FROM liquidation WHERE l_status = 'approved' OR l_status = 'verified') as approved_liquidations,
                 (SELECT COUNT(*) FROM liquidation WHERE l_status = 'verified') as verified_liquidations,
+                (SELECT COUNT(*) FROM liquidation WHERE l_status = 'completed') as completed_liquidations,
                 (SELECT COUNT(*) FROM liquidation WHERE l_status = 'rejected') as rejected_liquidations
                 `
             );
