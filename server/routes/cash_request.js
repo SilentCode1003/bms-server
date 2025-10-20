@@ -254,6 +254,7 @@ router.post("/createcash_request", async (req, res) => {
 
     if (
       !description ||
+      !team_lead ||
       !employee ||
       !employee_id ||
       !department ||
