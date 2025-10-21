@@ -2266,3 +2266,164 @@ module.exports = swaggerDocs;
  */
 
 //#endregion
+
+//#region District API Documentation
+/**
+ * @swagger
+ * /district/getdistrict:
+ *   get:
+ *     summary: Get all districts
+ *     description: Retrieves a list of all districts with their details
+ *     tags:
+ *       - District
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved all district records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: District ID
+ *                     example: 1
+ *                   store_number:
+ *                     type: string
+ *                     description: Store number of the district
+ *                     example: "1013"
+ *                   store_name:
+ *                     type: string
+ *                     description: Store name
+ *                     example: "BATAC CITY PROPER"
+ *                   city_province:
+ *                     type: string
+ *                     description: City or province of the district
+ *                     example: "ILOCOS NORTE"
+ *                   status:
+ *                     type: string
+ *                     description: Store status
+ *                     example: "ACTIVE"
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /district/getdistrict_by_id:
+ *   get:
+ *     summary: Get district by ID
+ *     description: Retrieves a specific district record using its unique ID
+ *     tags:
+ *       - District
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The unique ID of the district
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved district by ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   description: District ID
+ *                   example: 1
+ *                 store_number:
+ *                   type: string
+ *                   description: Store number of the district
+ *                   example: "1013"
+ *                 store_name:
+ *                   type: string
+ *                   description: Store name
+ *                   example: "BATAC CITY PROPER"
+ *                 city_province:
+ *                   type: string
+ *                   description: City or province of the district
+ *                   example: "ILOCOS NORTE"
+ *                 status:
+ *                   type: string
+ *                   description: Store status
+ *                   example: "ACTIVE"
+ *       400:
+ *         description: Missing or invalid district ID
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /district/createdistrict_excel:
+ *   post:
+ *     summary: Import district records from Excel
+ *     description: >
+ *       Uploads an Excel file containing district data and inserts records into the database.
+ *       The Excel file must contain the following columns: **STORE NO**, **STORE NAME**, **CITY PROVINCE**, and **STATUS**.
+ *     tags:
+ *       - District
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Excel (.xlsx) file containing district records
+ *     responses:
+ *       200:
+ *         description: Successfully imported district records from Excel
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "5 store records successfully imported."
+ *                 imported:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       store_no:
+ *                         type: string
+ *                         example: "1013"
+ *                       store_name:
+ *                         type: string
+ *                         example: "BATAC CITY PROPER"
+ *                       city_province:
+ *                         type: string
+ *                         example: "ILOCOS NORTE"
+ *                       status:
+ *                         type: string
+ *                         example: "ACTIVE"
+ *       400:
+ *         description: Invalid or missing file / incorrect Excel format
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion

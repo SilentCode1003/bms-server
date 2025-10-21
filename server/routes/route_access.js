@@ -35,7 +35,6 @@ router.get("/getroute_access", (req, res) => {
                 Masters.master_route_access.selectColumns,
                 Masters.master_route_access.selectOptionsColumn.id,
             );
-
             let result = await Select(select_sql);
             res.status(200).json(JsonResponseData(DataModeling(result, Masters.master_route_access.prefix)));
         }
@@ -183,7 +182,10 @@ router.post("/createbulk_route_access", async (req, res) => {
             "liquidation_form",
             "admin_liquid_form",
             "completed_liquidations",
-            "admin_reject_liquidations"
+            "admin_reject_liquidations",
+            "approved_request",
+            "rejected_request",
+            "liquidated_request",
         ];
 
         for (let name of routeNames) {
