@@ -1,14 +1,14 @@
 var express = require('express');
 const {
-        JsonResposeError,
-        JsonResponseData,
-        JsonResponseSuccess,
+  JsonResposeError,
+  JsonResponseData,
+  JsonResponseSuccess,
 } = require("../repository/helper/enums");
 const {
-        SelectStatement,
-        SelectAllStatement,
-        InsertStatement,
-        UpdateStatement,
+  SelectStatement,
+  SelectAllStatement,
+  InsertStatement,
+  UpdateStatement,
 } = require("../repository/helper/customhelper");
 const { Masters } = require("../repository/model/masters");
 const { Select, Insert, Update } = require("../repository/helper/dbconnect");
@@ -23,16 +23,16 @@ var router = express.Router();
 
 /* GET district page. */
 router.get('/', function (req, res, next) {
-        res.render('district', { title: 'Express' });
+  res.render('district', { title: 'Express' });
 });
 
 module.exports = router;
 
 router.get('/getdistrict', async (req, res) => {
-        try {
-                async function ProcessData() {
-                        let select_district_sql = SelectStatement(
-                                `SELECT
+  try {
+    async function ProcessData() {
+      let select_district_sql = SelectStatement(
+        `SELECT
                                 md_id as id,
                                 md_store_number as store_number,
                                 md_store_name as store_name,
@@ -40,31 +40,82 @@ router.get('/getdistrict', async (req, res) => {
                                 md_status as status
                                 FROM master_district
                                 `
-                        );
+      );
 
-                        let result = await Select(select_district_sql);
+      let result = await Select(select_district_sql);
 
-                        return res.status(200).json(result);
-                }
+      return res.status(200).json(result);
+    }
 
-                await ProcessData();
-        } catch (error) {
-                console.error("Error during login:", error);
-                res.status(500).json(JsonResposeError(error));
-        }
+    await ProcessData();
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+});
+
+router.get('/getdistrict_by_search', async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    async function ProcessData() {
+      let select_district_sql;
+      let params = [];
+
+      if (search && search.trim() !== "") {
+        select_district_sql = SelectStatement(
+          `SELECT
+            md_id as id,
+            md_store_number as store_number,
+            md_store_name as store_name,
+            md_city_province as city_province,
+            md_status as status
+           FROM master_district
+           WHERE
+             md_status = 'ACTIVE' AND
+             (md_store_number LIKE ? OR 
+             md_store_name LIKE ? OR
+             md_city_province LIKE ?)
+           ORDER BY md_store_name ASC`,
+          [`%${search}%`, `%${search}%`, `%${search}%`]
+        );
+      } else {
+        select_district_sql = SelectStatement(
+          `SELECT
+            md_id as id,
+            md_store_number as store_number,
+            md_store_name as store_name,
+            md_city_province as city_province,
+            md_status as status
+           FROM master_district
+           WHERE md_status = 'ACTIVE'
+           ORDER BY md_store_name ASC
+           LIMIT 10`
+        );
+      }
+
+      let result = await Select(select_district_sql);
+      return res.status(200).json(result);
+    }
+
+    await ProcessData();
+  } catch (error) {
+    console.error("Error fetching districts:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
 });
 
 router.get('/getdistrict_by_id', async (req, res) => {
-        try {
-                const { id } = req.query;
+  try {
+    const { id } = req.query;
 
-                if (!id) {
-                        return res.status(400).json({ error: 'District ID is required' });
-                }
+    if (!id) {
+      return res.status(400).json({ error: 'District ID is required' });
+    }
 
-                async function ProcessData() {
-                        let select_district_sql = SelectStatement(
-                                `SELECT
+    async function ProcessData() {
+      let select_district_sql = SelectStatement(
+        `SELECT
                                 md_id as id,
                                 md_store_number as store_number,
                                 md_store_name as store_name,
@@ -73,18 +124,18 @@ router.get('/getdistrict_by_id', async (req, res) => {
                                 FROM master_district
                                 WHERE md_id = ?
                                 `, [id]
-                        );
+      );
 
-                        let result = await Select(select_district_sql);
+      let result = await Select(select_district_sql);
 
-                        return res.status(200).json(result);
-                }
+      return res.status(200).json(result);
+    }
 
-                await ProcessData();
-        } catch (error) {
-                console.error("Error during login:", error);
-                res.status(500).json(JsonResposeError(error));
-        }
+    await ProcessData();
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
 });
 
 router.post("/createdistrict_excel", upload.single('file'), async (req, res) => {
@@ -158,3 +209,82 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
     res.status(500).json(JsonResposeError(error));
   }
 });
+
+router.post("/create_district", async (req, res) => {
+  try {
+    async function ProcessData() {
+      const { store_number, store_name, city_province } = req.body;
+      let data = [
+        [
+          store_number,
+          store_name,
+          city_province,
+          "ACTIVE"
+        ],
+      ];
+
+      let insert_sql = InsertStatement(
+        Masters.master_district.tablename,
+        Masters.master_district.prefix,
+        Masters.master_district.insertColumns
+      );
+
+      let districtResult = await Insert(insert_sql, data);
+
+      return res.status(200).json(JsonResponseSuccess({
+        message: "District created successfully.",
+        district: districtResult
+      }));
+    }
+
+    await ProcessData();
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+})
+
+router.put("/update_district", async (req, res) => {
+  try {
+    async function ProcessData() {
+      const { id, store_number, store_name, city_province, status } = req.body;
+      let data = [];
+      let set_columns = [];
+
+      if (store_number) {
+        set_columns.push(Masters.master_district.selectOptionsColumn.store_number);
+        data.push(store_number);
+      }
+      if (store_name) {
+        set_columns.push(Masters.master_district.selectOptionsColumn.store_name);
+        data.push(store_name);
+      }
+      if (city_province) {
+        set_columns.push(Masters.master_district.selectOptionsColumn.city_province);
+        data.push(city_province);
+      }
+      if (status) {
+        set_columns.push(Masters.master_district.selectOptionsColumn.status);
+        data.push(status);
+      }
+
+      data.push(id);
+
+      let update_sql = UpdateStatement(
+        Masters.master_district.tablename,
+        set_columns,
+        [Masters.master_district.selectOptionsColumn.id]
+      );
+      await Update(update_sql, [data]);
+
+      return res.status(200).json(JsonResponseSuccess({
+        message: "District updated successfully.",
+      }));
+    }
+
+    await ProcessData();
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+})

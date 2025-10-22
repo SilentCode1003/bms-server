@@ -2314,6 +2314,60 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
+
+/**
+ * @swagger
+ * /district/getdistrict_by_search:
+ *   get:
+ *     summary: Get districts by search
+ *     description: Retrieves a list of districts that match the search criteria
+ *     tags:
+ *       - District
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: The search query
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved districts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: District ID
+ *                     example: 1
+ *                   store_number:
+ *                     type: string
+ *                     description: Store number of the district
+ *                     example: "1013"
+ *                   store_name:
+ *                     type: string
+ *                     description: Store name
+ *                     example: "BATAC CITY PROPER"
+ *                   city_province:
+ *                     type: string
+ *                     description: City or province of the district
+ *                     example: "ILOCOS NORTE"
+ *                   status:
+ *                     type: string
+ *                     description: Store status
+ *                     example: "ACTIVE"
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
 /**
  * @swagger
  * /district/getdistrict_by_id:
@@ -2418,6 +2472,142 @@ module.exports = swaggerDocs;
  *                         example: "ACTIVE"
  *       400:
  *         description: Invalid or missing file / incorrect Excel format
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /district/create_district:
+ *   post:
+ *     summary: Create a district record
+ *     description: Inserts a new district record into the database.
+ *     tags:
+ *       - District
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - store_number
+ *               - store_name
+ *               - city_province
+ *             properties:
+ *               store_number:
+ *                 type: string
+ *                 description: Store number of the district
+ *                 example: "1013"
+ *               store_name:
+ *                 type: string
+ *                 description: Store name
+ *                 example: "BATAC CITY PROPER"
+ *               city_province:
+ *                 type: string
+ *                 description: City or province of the district
+ *                 example: "ILOCOS NORTE"
+ *     responses:
+ *       200:
+ *         description: Successfully created district record
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "District created successfully."
+ *                 district:
+ *                   type: object
+ *                   properties:
+ *                     md_id:
+ *                       type: integer
+ *                       description: District ID
+ *                       example: 1
+ *                     md_store_number:
+ *                       type: string
+ *                       description: Store number of the district
+ *                       example: "1013"
+ *                     md_store_name:
+ *                       type: string
+ *                       description: Store name
+ *                       example: "BATAC CITY PROPER"
+ *                     md_city_province:
+ *                       type: string
+ *                       description: City or province of the district
+ *                       example: "ILOCOS NORTE"
+ *                     md_status:
+ *                       type: string
+ *                       description: Store status
+ *                       example: "ACTIVE"
+ *       400:
+ *         description: Missing or invalid data in request body
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /district/update_district:
+ *   put:
+ *     summary: Update a district record
+ *     description: Updates an existing district record in the database.
+ *     tags:
+ *       - District
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - store_number
+ *               - store_name
+ *               - city_province
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 description: District ID
+ *                 example: 1
+ *               store_number:
+ *                 type: string
+ *                 description: Store number of the district
+ *                 example: "1013"
+ *               store_name:
+ *                 type: string
+ *                 description: Store name
+ *                 example: "BATAC CITY PROPER"
+ *               city_province:
+ *                 type: string
+ *                 description: City or province of the district
+ *                 example: "ILOCOS NORTE"
+ *               status:
+ *                 type: string
+ *                 description: Store status
+ *                 example: "ACTIVE"
+ *     responses:
+ *       200:
+ *         description: Successfully updated district record
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "District updated successfully."
+ *       400:
+ *         description: Missing or invalid data in request body
  *       500:
  *         description: Internal Server Error
  *         content:
