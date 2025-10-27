@@ -69,7 +69,7 @@ router.get('/getcash_liquidation', async (req, res) => {
                                 'liquidation_id', li.li_liquidation_id,
                                 'date', li.li_date,
                                 'rt', li.li_rt,
-                                'store_name', md.md_store_name,
+                                'store', md.md_store_name,
                                 'particulars', li.li_particulars,
                                 'from', li.li_from,
                                 'to', li.li_to,
