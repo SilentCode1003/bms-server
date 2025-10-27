@@ -33,7 +33,7 @@ router.get('/getliquidation_item', async (req, res) => {
                                  MIN(li_liquidation_id) AS liquidation_id,
                                  MIN(li_date) AS date,
                                  MIN(li_rt) AS rt,
-                                 MIN(md.md_store_name) AS store_name,
+                                 MIN(li_store_name) AS store_name,
                                  MIN(li_particulars) AS particulars,
                                  li_from AS started_from,
                                  li_to AS ended_to,
@@ -41,7 +41,6 @@ router.get('/getliquidation_item', async (req, res) => {
                                  li_amount AS amount
                                  FROM liquidation_item
                                  LEFT JOIN liquidation l ON li_liquidation_id = l.l_id
-                                 LEFT JOIN master_district md ON li_store = md.md_id
                                  WHERE
                                  l.l_status != 'rejected'
                                  AND COALESCE(li_from, '') NOT IN ('N/A', 'NA', 'na', 'n/a')
@@ -188,14 +187,13 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
                                 li_liquidation_id as liquidation_id,
                                 li_date as date,
                                 li_rt as rt,
-                                md.md_store_name as store_name,
+                                li_store_name as store_name,
                                 li_particulars as particulars,
                                 li_from as started_from,
                                 li_to as ended_to,
                                 li_mode_of_transportation,
                                 li_amount as amount
                                 FROM liquidation_item
-                                LEFT JOIN master_district md ON li_store = md.md_id
                                 WHERE li_liquidation_id = ?
                                 `, [id]
                         );

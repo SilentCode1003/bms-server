@@ -540,6 +540,53 @@ module.exports = swaggerDocs;
  */
 
 
+/**
+ * @swagger
+ * /dashboard/get_store_and_location_expenses:
+ *   get:
+ *     summary: Get expenses by store and location
+ *     description: Retrieve a list of expenses by store and location
+ *     tags:
+ *       - Dashboard
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved expenses by store and location
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 store_result:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       store_name:
+ *                         type: string
+ *                       total_amount:
+ *                         type: number
+ *                 location_result:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       location_name:
+ *                         type: string
+ *                       total_amount:
+ *                         type: number
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
+ */
+
 //#endregion
 
 //#region Master Route Access API Documentation

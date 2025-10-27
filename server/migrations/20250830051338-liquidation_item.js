@@ -33,12 +33,8 @@ module.exports = {
         allowNull: false,
       },
       li_store: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.STRING(120),
         allowNull: true,
-        references: {
-          model: 'master_district',
-          key: 'md_id',
-        },
       },
       li_particulars: {
         type: Sequelize.TEXT,

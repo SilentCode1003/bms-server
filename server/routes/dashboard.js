@@ -248,7 +248,7 @@ router.get('/get_finance_charts', async (req, res) => {
 router.get('/get_requester_cards', async (req, res) => {
     try {
         let { employee_id, startDate, endDate } = req.query;
-
+console.log(req.query)
         async function ProcessData() {
         if (!startDate && !endDate) {
             startDate = GetCurrentDate();
@@ -336,14 +336,9 @@ router.get('/get_requester_cards', async (req, res) => {
                     `
                 );
                 let result = await Select(select_requester_cards_sql);
-
                 return res.status(200).json(result);
             }
-
-
-            
         }
-
         await ProcessData();
     } catch (error) {
         console.error("Error during login:", error);
@@ -439,6 +434,55 @@ router.get('/get_teamleader_cards', async (req, res) => {
         res.status(500).json(JsonResposeError(error));
     }
 });
+
+router.get('/get_store_and_location_expenses', async (req, res) => {
+  try {
+    let select_store_expenses_sql = SelectStatement(`
+      SELECT
+        li_store_name AS store_name,
+        SUM(li_amount) AS total_amount
+      FROM liquidation_item
+      GROUP BY li_store_name
+    `);
+    let store_result = await Select(select_store_expenses_sql);
+
+let select_location_expenses_sql = SelectStatement(`
+  SELECT 
+    location_name,
+    JSON_ARRAYAGG(
+      JSON_OBJECT(
+        'name', cr_employee,
+        'amount', employee_amount
+      )
+    ) AS employees,
+    SUM(employee_amount) AS total_amount
+  FROM (
+    SELECT 
+      COALESCE(li.li_from, li.li_to) AS location_name,
+      cr.cr_employee AS cr_employee,
+      SUM(li.li_amount) AS employee_amount
+    FROM liquidation_item li
+    INNER JOIN liquidation l ON li.li_liquidation_id = l.l_id
+    INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
+    WHERE COALESCE(li.li_from, li.li_to) IS NOT NULL
+      AND COALESCE(li.li_from, li.li_to) != ''
+      AND (l.l_status = 'verified' OR l.l_status = 'completed')
+    GROUP BY location_name, cr.cr_employee
+  ) AS employee_data
+  GROUP BY location_name
+  ORDER BY location_name;
+`);
+
+
+    let location_result = await Select(select_location_expenses_sql);
+
+    return res.status(200).json({ store_result, location_result });
+  } catch (error) {
+    console.error("Error during get_store_and_location_expenses:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+});
+
 
 // router.get('/get_user_overall_expenses', async (req, res) => {
 //     try {

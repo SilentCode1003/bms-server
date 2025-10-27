@@ -69,7 +69,7 @@ router.get('/getcash_liquidation', async (req, res) => {
                                 'liquidation_id', li.li_liquidation_id,
                                 'date', li.li_date,
                                 'rt', li.li_rt,
-                                'store', md.md_store_name,
+                                'store', li.li_store_name,
                                 'particulars', li.li_particulars,
                                 'from', li.li_from,
                                 'to', li.li_to,
@@ -78,7 +78,6 @@ router.get('/getcash_liquidation', async (req, res) => {
                             )
                         )
                         FROM liquidation_item li
-                        LEFT JOIN master_district md ON li.li_store = md.md_id
                         WHERE li.li_liquidation_id = l.l_id
                     ) AS liquidation_items
                 FROM liquidation l
@@ -286,7 +285,7 @@ router.post("/create_liquidation", async (req, res) => {
                 liquidation_id,
                 item.date || "N/A",
                 item.rt || "N/A",
-                parseInt(item.store_name) || null,
+                item.store_name || "N/A",
                 item.particulars || "N/A",
                 (item.from || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
                 (item.to || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
@@ -561,8 +560,6 @@ router.put("/update_liquidation", async (req, res) => {
     }
 });
 
-
-
 router.put("/update_liquidation_rejected", async (req, res) => {
     const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
     let connection;
@@ -630,7 +627,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                 liquidation_id,
                 item.date || "N/A",
                 item.rt || "N/A",
-                item.store || null,
+                item.store_name || "N/A",
                 item.particulars || "N/A",
                 item.from || "N/A",
                 item.to || "N/A",
