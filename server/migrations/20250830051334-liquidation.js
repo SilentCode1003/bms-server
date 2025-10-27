@@ -45,7 +45,7 @@ module.exports = {
         allowNull: false,
       },
       l_status: {
-        type: Sequelize.ENUM('pending', 'approved', 'verified', 'completed', 'rejected'),
+        type: Sequelize.ENUM('pending', 'approved', 'verified', 'completed', 'incomplete', 'rejected'),
         allowNull: false,
       },
     });

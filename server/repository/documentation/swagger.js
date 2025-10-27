@@ -99,19 +99,19 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "http://localhost:5012",
+        url: "http://localhost:5013",
         description: "Localhost"
       },
       {
-        url: "http://192.168.40.100:5012",
+        url: "http://192.168.40.100:5013",
         description: "Staging Server"
       },
       {
-        url: "http://192.168.40.100:5012",
+        url: "http://192.168.40.100:5013",
         description: "Development Server"
       },
       {
-        url: "http://192.168.40.100:5012",
+        url: "http://192.168.40.100:5013",
         description: "Auth Server"
       }
     ],
@@ -181,7 +181,7 @@ module.exports = swaggerDocs;
  *                     
  *                     For example:
  *                     ```
- *                     fetch('http://localhost:5012/api/endpoint', {
+ *                     fetch('http://localhost:5013/api/endpoint', {
  *                       headers: {
  *                         'Authorization': 'Bearer ' + response.token
  *                       }
@@ -283,6 +283,19 @@ module.exports = swaggerDocs;
  *     description: Retrieve a summary of finance cards data
  *     tags:
  *       - Dashboard
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date of the date range
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date of the date range
  *     produces:
  *       - application/json
  *     responses:
@@ -326,6 +339,19 @@ module.exports = swaggerDocs;
  *     description: Retrieve outstanding balance and cash flow data for finance charts
  *     tags:
  *       - Dashboard
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date of the date range
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date of the date range
  *     produces:
  *       - application/json
  *     responses:
@@ -387,6 +413,18 @@ module.exports = swaggerDocs;
  *         schema:
  *           type: integer
  *         description: The ID of the employee to fetch requester card data for
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date of the date range
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date of the date range
  *     produces:
  *       - application/json
  *     responses:
@@ -447,6 +485,18 @@ module.exports = swaggerDocs;
  *         schema:
  *           type: string
  *         description: The employee ID to filter team leader card data
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date of the date range
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date of the date range
  *     produces:
  *       - application/json
  *     responses:
@@ -1936,7 +1986,7 @@ module.exports = swaggerDocs;
  *           properties:
  *             status:
  *               type: string
- *               enum: ["APPROVED", "VERIFIED", "COMPLETED", "REJECTED"]
+ *               enum: ["APPROVED", "VERIFIED", "COMPLETED", "REJECTED", "INCOMPLETE"]
  *             id:
  *               type: integer
  *             remarks:

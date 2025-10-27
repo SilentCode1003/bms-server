@@ -34,7 +34,7 @@ module.exports = {
       },
       li_store: {
         type: Sequelize.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: {
           model: 'master_district',
           key: 'md_id',

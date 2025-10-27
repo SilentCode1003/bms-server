@@ -286,11 +286,11 @@ router.post("/create_liquidation", async (req, res) => {
                 liquidation_id,
                 item.date || "N/A",
                 item.rt || "N/A",
-                parseInt(item.store_name) || 0,
+                parseInt(item.store_name) || null,
                 item.particulars || "N/A",
-                (item.from || "").replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
-                (item.to || "").replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
-                (item.mode_of_transportation || "").replace(/[^a-zA-Z ]/g, "").toUpperCase() || "N/A",
+                (item.from || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
+                (item.to || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
+                (item.mode_of_transportation || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
                 parseFloat(item.amount) || 0
             ]);
 
@@ -522,6 +522,33 @@ router.put("/update_liquidation", async (req, res) => {
                     Liquidations.liquidation_activity.insertColumns
                 );
                 await Insert(activity_insert_sql, activityData);
+            } else if (status === "incomplete") {
+                let data = [
+                    [status, id],
+                ];
+                let update_sql = UpdateStatement(
+                    Liquidations.liquidation.tablename,
+                    [Liquidations.liquidation.selectOptionsColumn.status],
+                    [Liquidations.liquidation.selectOptionsColumn.id],
+                );
+                await Update(update_sql, data);
+
+                let activityData = [
+                    [
+                        id,
+                        "INCOMPLETE",
+                        remarks || "",
+                        receipts,
+                        created_at,
+                        created_by
+                    ]
+                ];
+                let activity_insert_sql = InsertStatement(
+                    Liquidations.liquidation_activity.tablename,
+                    Liquidations.liquidation_activity.prefix,
+                    Liquidations.liquidation_activity.insertColumns
+                );
+                await Insert(activity_insert_sql, activityData);
             }
 
             res.status(200).json(JsonResponseSuccess());
@@ -534,10 +561,11 @@ router.put("/update_liquidation", async (req, res) => {
     }
 });
 
+
+
 router.put("/update_liquidation_rejected", async (req, res) => {
     const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
     let connection;
-    
     try {
         const { liquidation_id, items, remarks, receipts } = req.body;
         console.log("update liquidation rejected", req.body);
@@ -546,17 +574,17 @@ router.put("/update_liquidation_rejected", async (req, res) => {
             return res.status(400).json(JsonResposeError("Missing liquidation_id"));
         }
 
-        if (!Array.isArray(items) || items.length === 0) {
-            return res.status(400).json(JsonResposeError("At least one item is required"));
-        }
+        // if (!Array.isArray(items) || items.length === 0) {
+        //     return res.status(400).json(JsonResposeError("At least one item is required"));
+        // }
 
-        for (const item of items) {
-            if (!item.date || !item.particulars) {
-                return res.status(400).json(
-                    JsonResposeError("Each item must have date, particulars, and amount")
-                );
-            }
-        }
+        // for (const item of items) {
+        //     if (!item.date || !item.particulars) {
+        //         return res.status(400).json(
+        //             JsonResposeError("Each item must have date, particulars, and amount")
+        //         );
+        //     }
+        // }
 
         connection = await beginTransaction();
 
@@ -602,7 +630,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                 liquidation_id,
                 item.date || "N/A",
                 item.rt || "N/A",
-                item.store || "N/A",
+                item.store || null,
                 item.particulars || "N/A",
                 item.from || "N/A",
                 item.to || "N/A",
