@@ -37,7 +37,10 @@ module.exports = {
       "liquidation_form",
       "admin_liquid_form",
       "completed_liquidations",
-      "admin_reject_liquidations"
+      "admin_reject_liquidations",
+      "approved_request",
+      "rejected_request",
+      "liquidated_request",
     ];
 
     const adminExcluded = ["route_access", "dashboard", "generate_reports"];

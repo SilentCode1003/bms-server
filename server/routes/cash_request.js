@@ -205,7 +205,6 @@ router.get("/getexisting_liquidation", async (req, res) => {
 
       let result = await Select(select_liquidation_sql);
 
-      console.log(result);
       return res.status(200).json(result);
     }
     await ProcessData();

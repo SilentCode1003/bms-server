@@ -2,6 +2,7 @@
 npx sequelize-cli migration:generate --name master_route_access
 npx sequelize-cli migration:generate --name master_wallet
 npx sequelize-cli migration:generate --name master_wallet_activity
+npx sequelize-cli migration:generate --name master_district
 */
 
 const Masters = {
@@ -68,6 +69,31 @@ const Masters = {
             date: "mwa_date",
         },
     },
+    master_district: {
+        tablename: "master_district",
+        prefix: "md_",
+        insertColumns: [
+            "store_number",
+            "store_name",
+            "city_province",
+            "status",
+        ],
+        selectColumns: [
+            "md_id",
+            "md_store_number",
+            "md_store_name",
+            "md_city_province",
+            "md_status",
+        ],
+        selectOptionsColumn: {
+            id: "md_id",
+            store_number: "md_store_number",
+            store_name: "md_store_name",
+            city_province: "md_city_province",
+            status: "md_status",
+        },
+    },
+
 };
 
 module.exports = { Masters };
