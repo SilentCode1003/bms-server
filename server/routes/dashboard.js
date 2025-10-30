@@ -31,8 +31,8 @@ router.get('/get_finance_cards', async (req, res) => {
     try {
         async function ProcessData() {
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
         const parseToSqlDate = (dt, endOfDay = false) => {
         if (!dt) return null;
@@ -106,8 +106,8 @@ router.get('/get_finance_charts', async (req, res) => {
         let { startDate, endDate } = req.query;
         async function ProcessData() {
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
         const parseToSqlDate = (dt, endOfDay = false) => {
         if (!dt) return null;
@@ -248,11 +248,11 @@ router.get('/get_finance_charts', async (req, res) => {
 router.get('/get_requester_cards', async (req, res) => {
     try {
         let { employee_id, startDate, endDate } = req.query;
-console.log(req.query)
+
         async function ProcessData() {
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
 
         const parseToSqlDate = (dt, endOfDay = false) => {
@@ -353,8 +353,8 @@ router.get('/get_teamleader_cards', async (req, res) => {
         async function ProcessData() {
 
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
 
         const parseToSqlDate = (dt, endOfDay = false) => {

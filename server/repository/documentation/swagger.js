@@ -111,6 +111,10 @@ const swaggerOptions = {
         description: "Development Server"
       },
       {
+        url: "http://172.16.1.32:5003",
+        description: "UAT Server"
+      },
+      {
         url: "http://192.168.40.100:5013",
         description: "Auth Server"
       }

@@ -549,7 +549,6 @@ router.put("/update_liquidation", async (req, res) => {
                 );
                 await Insert(activity_insert_sql, activityData);
             }
-
             res.status(200).json(JsonResponseSuccess());
         }
 
