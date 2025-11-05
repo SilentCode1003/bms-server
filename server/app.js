@@ -1,3 +1,5 @@
+const http = require('http');
+const { Server } = require('socket.io');
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -23,8 +25,9 @@ const verifyjwt  = require('./repository/middleware/authentication');
 
 const { SetMongo } = require("./repository/middleware/mongodb");
 
-var app = express();
+const app = express();
 SetMongo(app);
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -35,6 +38,7 @@ const errorViewPath = path.join(__dirname, 'views', 'error.jade');
 if (!fs.existsSync(errorViewPath)) {
     fs.writeFileSync(errorViewPath, 'h1= message\npre #{error.stack}');
 }
+
 app.use(cors());
 app.use(logger("dev"));
 app.use(express.json({ limit: '1000mb' }));
@@ -84,4 +88,50 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-module.exports = app;
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, { 
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Make io accessible to our router
+app.set('io', io);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  // Re-broadcast cash request events received from any client to all clients
+  socket.on('cash_request_updated', (data) => {
+    try {
+      io.emit('cash_request_updated', { ...data, serverTimestamp: new Date().toISOString() });
+    } catch (e) { /* no-op */ }
+  });
+
+  socket.on('cash_request_created', (data) => {
+    try {
+      io.emit('cash_request_created', { ...data, serverTimestamp: new Date().toISOString() });
+    } catch (e) { /* no-op */ }
+  });
+
+  socket.on('cash_request_fetched', (data) => {
+    try {
+      io.emit('cash_request_fetched', { ...data, serverTimestamp: new Date().toISOString() });
+    } catch (e) { /* no-op */ }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+// Make server and io accessible for www
+app.set('httpServer', server);
+app.set('io', io);
+
+module.exports = { app, server, io };

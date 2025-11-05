@@ -21,7 +21,15 @@ const {
   DecrypterString,
 } = require("../repository/helper/crytography");
 const jwt = require("jsonwebtoken");
-var router = express.Router();
+const router = express.Router();
+
+// Function to emit cash request updates
+const emitCashRequestUpdate = (req, event, data) => {
+  const io = req.app.get('io');
+  if (io) {
+    io.emit(`cash_request:${event}`, data);
+  }
+};
 
 /* GET cash_request page. */
 router.get("/", function (req, res, next) {
@@ -49,7 +57,7 @@ router.get("/getcash_request", async (req, res) => {
 
       let whereClause =
         whereConditions.length > 0
-          ? `WHERE ${whereConditions.join(" AND ")}`
+          ? `WHERE ${whereConditions.join(" AND ")}` 
           : "";
 
       let select_cash_request_sql = SelectStatement(
@@ -99,12 +107,38 @@ router.get("/getcash_request", async (req, res) => {
       );
 
       let result = await Select(select_cash_request_sql);
+      
+      // Emit socket event for the fetch
+      emitCashRequestUpdate(req, 'fetched', {
+        event: 'cash_requests_fetched',
+        status: 'success',
+        count: result.length,
+        timestamp: new Date().toISOString()
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('cash_request:fetched', {
+          status: 'success',
+          count: result.length,
+          timestamp: new Date().toISOString()
+        });
+      }
+
       return res.status(200).json(result);
     }
 
     await ProcessData();
   } catch (error) {
     console.error("Error fetching cash requests:", error);
+    // Emit error event
+    emitCashRequestUpdate(req, 'error', {
+      event: 'cash_requests_fetch_error',
+      status: 'error',
+      message: 'Failed to fetch cash requests',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
     res.status(500).json(JsonResposeError(error));
   }
 });
@@ -165,6 +199,23 @@ router.get("/getapproved_cash_request", async (req, res) => {
       );
 
       let result = await Select(select_cash_request_sql);
+
+      emitCashRequestUpdate(req, 'approved_fetched', {
+        event: 'approved_cash_requests_fetched',
+        status: 'success',
+        count: result.length,
+        timestamp: new Date().toISOString()
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('cash_request:approved_fetched', {
+          status: 'success',
+          count: result.length,
+          timestamp: new Date().toISOString()
+        });
+      }
+
       return res.status(200).json(result);
     }
 
@@ -314,6 +365,14 @@ router.post("/createcash_request", async (req, res) => {
           status,
         ],
       ];
+
+      // Emit event before creating the cash request
+      emitCashRequestUpdate(req, 'creating', {
+        event: 'cash_request_creating',
+        status: 'in_progress',
+        reference_id,
+        timestamp: new Date().toISOString()
+      });
 
       let insert_sql = InsertStatement(
         CashRequests.cash_request.tablename,

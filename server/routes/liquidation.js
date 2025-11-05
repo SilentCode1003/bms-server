@@ -20,6 +20,14 @@ const { EncrypterString, DecrypterString } = require("../repository/helper/cryto
 const jwt = require('jsonwebtoken');
 var router = express.Router();
 
+// Function to emit liquidation updates
+const emitLiquidationUpdate = (req, event, data) => {
+    const io = req.app.get('io');
+    if (io) {
+        io.emit(`liquidation:${event}`, data);
+    }
+};
+
 /* GET liquidation page. */
 router.get('/', function (req, res, next) {
     res.render('liquidation', { title: 'Express' });
@@ -98,12 +106,40 @@ router.get('/getcash_liquidation', async (req, res) => {
             );
 
             let result = await Select(select_liquidation_sql);
+
+            // Helper emit
+            emitLiquidationUpdate(req, 'fetched', {
+                event: 'liquidation_fetched',
+                status: 'success',
+                count: result.length,
+                filters: { status, employee_id },
+                timestamp: new Date().toISOString()
+            });
+
+            // Direct broadcast
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('liquidation:fetched', {
+                    status: 'success',
+                    count: result.length,
+                    filters: { status, employee_id },
+                    timestamp: new Date().toISOString()
+                });
+            }
+
             return res.status(200).json(result);
         }
 
         await ProcessData();
     } catch (error) {
         console.error("Error fetching liquidations:", error);
+        emitLiquidationUpdate(req, 'error', {
+            event: 'liquidation_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch liquidations',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json(JsonResposeError(error));
     }
 });
@@ -111,7 +147,6 @@ router.get('/getcash_liquidation', async (req, res) => {
 router.get('/getcash_liquidation_id', async (req, res) => {
     try {
         const { id } = req.query;
-        console.log(req.query)
 
         if (!id) {
             return res.status(400).json({ error: 'Liquidation ID is required' });
@@ -133,9 +168,25 @@ router.get('/getcash_liquidation_id', async (req, res) => {
 
             const result = await Select(query);
 
-            // if (result.length === 0) {
-            //     return res.status(404).json({ message: 'No activities found for this liquidation' });
-            // }
+            // Helper emit
+            emitLiquidationUpdate(req, 'activities_fetched', {
+                event: 'liquidation_activities_fetched',
+                status: 'success',
+                liquidation_id: parseInt(id, 10),
+                count: result.length,
+                timestamp: new Date().toISOString()
+            });
+
+            // Direct broadcast
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('liquidation:activities_fetched', {
+                    status: 'success',
+                    liquidation_id: parseInt(id, 10),
+                    count: result.length,
+                    timestamp: new Date().toISOString()
+                });
+            }
 
             return res.status(200).json(result);
         }
@@ -143,6 +194,13 @@ router.get('/getcash_liquidation_id', async (req, res) => {
         await ProcessData();
     } catch (error) {
         console.error("Error fetching liquidation activities:", error.sqlMessage);
+        emitLiquidationUpdate(req, 'error', {
+            event: 'liquidation_activities_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch liquidation activities',
+            error: error.sqlMessage || error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json({ error: 'Internal server error', details: error.sqlMessage });
     }
 });
@@ -178,12 +236,40 @@ router.get('/getapproved_liquidation', async (req, res) => {
             );
 
             let result = await Select(select_liquidation_sql);
+
+            // Helper emit
+            emitLiquidationUpdate(req, 'approved_fetched', {
+                event: 'liquidation_approved_fetched',
+                status: 'success',
+                count: result.length,
+                filter_status: status || null,
+                timestamp: new Date().toISOString()
+            });
+
+            // Direct broadcast
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('liquidation:approved_fetched', {
+                    status: 'success',
+                    count: result.length,
+                    filter_status: status || null,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
             return res.status(200).json(result);
         }
 
         await ProcessData();
     } catch (error) {
         console.error("Error during getapproved_liquidation:", error);
+        emitLiquidationUpdate(req, 'error', {
+            event: 'liquidation_approved_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch approved liquidations',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json(JsonResposeError(error));
     }
 });
@@ -239,6 +325,18 @@ router.post("/create_liquidation", async (req, res) => {
         if (existingLiquidation.length > 0) {
             await rollbackTransaction(connection);
             return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('liquidation:creating', {
+                reference_id,
+                description,
+                amount_obtained,
+                amount_expended,
+                reimburse_return,
+                timestamp: new Date().toISOString()
+            });
         }
 
         const liquidationData = [
@@ -325,6 +423,19 @@ router.post("/create_liquidation", async (req, res) => {
         await connection.query(activityInsertSql, activityData);
 
         await commitTransaction(connection);
+
+        if (io) {
+            io.emit('liquidation:created', {
+                id: liquidation_id,
+                reference_id,
+                status,
+                amount_obtained,
+                amount_expended,
+                reimburse_return,
+                timestamp: new Date().toISOString()
+            });
+        }
+
         res.status(200).json(JsonResponseSuccess({ id: liquidation_id }));
 
     } catch (error) {
@@ -332,6 +443,15 @@ router.post("/create_liquidation", async (req, res) => {
         
         if (connection) {
             await rollbackTransaction(connection);
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('liquidation:create_error', {
+                message: error.message || 'An error occurred while creating the liquidation',
+                reference_id,
+                timestamp: new Date().toISOString()
+            });
         }
         
         res.status(500).json(JsonResposeError(error.message || "An error occurred while creating the liquidation"));
@@ -352,6 +472,14 @@ router.put("/update_liquidation", async (req, res) => {
         }
 
         async function ProcessData() {
+            // Emit updating event
+            emitLiquidationUpdate(req, 'updating', {
+                event: 'liquidation_updating',
+                status: 'in_progress',
+                liquidation_id: id,
+                new_status: status,
+                timestamp: new Date().toISOString()
+            });
 
             if (status === "approved") {
                 let data = [status, id];
@@ -378,6 +506,15 @@ router.put("/update_liquidation", async (req, res) => {
                     Liquidations.liquidation_activity.insertColumns
                 );
                 await Insert(activity_insert_sql, activityData);
+
+                // Emit approved
+                emitLiquidationUpdate(req, 'approved', {
+                    event: 'liquidation_approved',
+                    status: 'success',
+                    liquidation_id: id,
+                    approved_by: created_by,
+                    timestamp: new Date().toISOString()
+                });
 
             } else if (status === "verified") {
                 let data = [status, id];
@@ -464,6 +601,19 @@ router.put("/update_liquidation", async (req, res) => {
                 );
                 await Insert(wallet_activity_insert_sql, wallet_activityData);
 
+                // Emit verified
+                emitLiquidationUpdate(req, 'verified', {
+                    event: 'liquidation_verified',
+                    status: 'success',
+                    liquidation_id: id,
+                    reference_id: liquidation[0]?.reference_id,
+                    cash_voucher: liquidation[0]?.cash_voucher,
+                    amount_expended: liquidation[0]?.amount_expended,
+                    amount_issued: liquidation[0]?.amount_issued,
+                    updated_by: created_by,
+                    timestamp: new Date().toISOString()
+                });
+
                 return res.status(200).json(liquidation);
             } else if (status === "completed") {
 
@@ -493,6 +643,15 @@ router.put("/update_liquidation", async (req, res) => {
                 );
                 await Insert(activity_insert_sql, activityData);
 
+                // Emit completed
+                emitLiquidationUpdate(req, 'completed', {
+                    event: 'liquidation_completed',
+                    status: 'success',
+                    liquidation_id: id,
+                    updated_by: created_by,
+                    timestamp: new Date().toISOString()
+                });
+
 
             } else if (status === "rejected") {
                 let data = [
@@ -521,6 +680,16 @@ router.put("/update_liquidation", async (req, res) => {
                     Liquidations.liquidation_activity.insertColumns
                 );
                 await Insert(activity_insert_sql, activityData);
+
+                // Emit rejected
+                emitLiquidationUpdate(req, 'rejected', {
+                    event: 'liquidation_rejected',
+                    status: 'success',
+                    liquidation_id: id,
+                    remarks: remarks || "",
+                    updated_by: created_by,
+                    timestamp: new Date().toISOString()
+                });
             } else if (status === "incomplete") {
                 let data = [
                     [status, id],
@@ -548,7 +717,27 @@ router.put("/update_liquidation", async (req, res) => {
                     Liquidations.liquidation_activity.insertColumns
                 );
                 await Insert(activity_insert_sql, activityData);
+                
+                // Emit incomplete
+                emitLiquidationUpdate(req, 'incomplete', {
+                    event: 'liquidation_incomplete',
+                    status: 'success',
+                    liquidation_id: id,
+                    remarks: remarks || "",
+                    updated_by: created_by,
+                    timestamp: new Date().toISOString()
+                });
             }
+            
+            // Emit generic updated event when not returned earlier
+            emitLiquidationUpdate(req, 'updated', {
+                event: 'liquidation_updated',
+                status: 'success',
+                liquidation_id: id,
+                new_status: status,
+                updated_by: created_by,
+                timestamp: new Date().toISOString()
+            });
             res.status(200).json(JsonResponseSuccess());
         }
 
@@ -671,6 +860,15 @@ router.put("/update_liquidation_rejected", async (req, res) => {
             );
 
             await commitTransaction(connection);
+
+            // Emit event for reopening/refresh after rejected update
+            emitLiquidationUpdate(req, 'reopened', {
+                event: 'liquidation_reopened_after_rejection',
+                status: 'success',
+                liquidation_id,
+                timestamp: new Date().toISOString()
+            });
+
             res.status(200).json(JsonResponseSuccess());
 
         } catch (error) {
