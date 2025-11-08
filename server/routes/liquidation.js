@@ -44,7 +44,9 @@ router.get('/getcash_liquidation', async (req, res) => {
             if (status) {
                 if (status.toLowerCase() === 'verified') {
                     whereConditions.push(`l.l_status IN ('verified','completed')`);
-                } else {
+                } else if(status.toLowerCase() === 'pending'){
+                    whereConditions.push(`l.l_status = '${status}'`);
+                }else{
                     whereConditions.push(`l.l_status = '${status}'`);
                 }
             }
@@ -53,7 +55,7 @@ router.get('/getcash_liquidation', async (req, res) => {
                 whereConditions.push(`cr.cr_employee_id = '${employee_id}'`);
             }
 
-            let whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : "";
+            let whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')} ` : "";
 
             let select_liquidation_sql = SelectStatement(
                 `SELECT
@@ -107,7 +109,6 @@ router.get('/getcash_liquidation', async (req, res) => {
 
             let result = await Select(select_liquidation_sql);
 
-            // Helper emit
             emitLiquidationUpdate(req, 'fetched', {
                 event: 'liquidation_fetched',
                 status: 'success',
@@ -116,7 +117,6 @@ router.get('/getcash_liquidation', async (req, res) => {
                 timestamp: new Date().toISOString()
             });
 
-            // Direct broadcast
             const io = req.app.get('io');
             if (io) {
                 io.emit('liquidation:fetched', {
@@ -168,7 +168,6 @@ router.get('/getcash_liquidation_id', async (req, res) => {
 
             const result = await Select(query);
 
-            // Helper emit
             emitLiquidationUpdate(req, 'activities_fetched', {
                 event: 'liquidation_activities_fetched',
                 status: 'success',
@@ -177,7 +176,6 @@ router.get('/getcash_liquidation_id', async (req, res) => {
                 timestamp: new Date().toISOString()
             });
 
-            // Direct broadcast
             const io = req.app.get('io');
             if (io) {
                 io.emit('liquidation:activities_fetched', {
@@ -237,7 +235,6 @@ router.get('/getapproved_liquidation', async (req, res) => {
 
             let result = await Select(select_liquidation_sql);
 
-            // Helper emit
             emitLiquidationUpdate(req, 'approved_fetched', {
                 event: 'liquidation_approved_fetched',
                 status: 'success',
@@ -246,7 +243,6 @@ router.get('/getapproved_liquidation', async (req, res) => {
                 timestamp: new Date().toISOString()
             });
 
-            // Direct broadcast
             const io = req.app.get('io');
             if (io) {
                 io.emit('liquidation:approved_fetched', {
@@ -465,14 +461,13 @@ router.post("/create_liquidation", async (req, res) => {
 router.put("/update_liquidation", async (req, res) => {
     try {
         const { status, id, remarks, receipts, created_by } = req.body;
-
+console.log(req.body)
         let created_at = GetCurrentDatetime();
         if (!id || !status) {
             return res.status(400).json(JsonResposeError("Missing required fields"));
         }
 
         async function ProcessData() {
-            // Emit updating event
             emitLiquidationUpdate(req, 'updating', {
                 event: 'liquidation_updating',
                 status: 'in_progress',
@@ -507,7 +502,6 @@ router.put("/update_liquidation", async (req, res) => {
                 );
                 await Insert(activity_insert_sql, activityData);
 
-                // Emit approved
                 emitLiquidationUpdate(req, 'approved', {
                     event: 'liquidation_approved',
                     status: 'success',
@@ -718,7 +712,6 @@ router.put("/update_liquidation", async (req, res) => {
                 );
                 await Insert(activity_insert_sql, activityData);
                 
-                // Emit incomplete
                 emitLiquidationUpdate(req, 'incomplete', {
                     event: 'liquidation_incomplete',
                     status: 'success',
@@ -729,7 +722,6 @@ router.put("/update_liquidation", async (req, res) => {
                 });
             }
             
-            // Emit generic updated event when not returned earlier
             emitLiquidationUpdate(req, 'updated', {
                 event: 'liquidation_updated',
                 status: 'success',
@@ -752,7 +744,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
     const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
     let connection;
     try {
-        const { liquidation_id, items, remarks, receipts } = req.body;
+        const { liquidation_id, items, remarks, receipts, status } = req.body;
         console.log("update liquidation rejected", req.body);
 
         if (!liquidation_id) {
@@ -846,13 +838,22 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                 ]
             );
 
-            await connection.query(
-                `UPDATE liquidation 
-                 SET l_status = ? 
-                 WHERE l_id = ?`,
-                ["pending", liquidation_id]
-            );
-
+            if(status!="incomplete"){
+                await connection.query(
+                    `UPDATE liquidation 
+                     SET l_status = ? 
+                     WHERE l_id = ?`,
+                    ["pending", liquidation_id]
+                );
+            } else {
+                await connection.query(
+                    `UPDATE liquidation 
+                     SET l_status = ? 
+                     WHERE l_id = ?`,
+                    ["verified", liquidation_id]
+                );
+            }
+            
             await connection.query(
                 `DELETE FROM liquidation_activity 
                  WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`,
@@ -861,7 +862,6 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 
             await commitTransaction(connection);
 
-            // Emit event for reopening/refresh after rejected update
             emitLiquidationUpdate(req, 'reopened', {
                 event: 'liquidation_reopened_after_rejection',
                 status: 'success',

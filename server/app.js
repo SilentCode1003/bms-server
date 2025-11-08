@@ -19,6 +19,7 @@ var liquidationRouter = require('./routes/liquidation');
 var liquidation_itemRouter = require('./routes/liquidation_item');
 var liquidation_activityRouter = require('./routes/liquidation_activity');
 var districtRouter = require('./routes/district');
+var notificationRouter = require('./routes/notification');
 
 
 const verifyjwt  = require('./repository/middleware/authentication');
@@ -28,11 +29,9 @@ const { SetMongo } = require("./repository/middleware/mongodb");
 const app = express();
 SetMongo(app);
 
-// view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
-// Create error.jade if it doesn't exist
 const fs = require('fs');
 const errorViewPath = path.join(__dirname, 'views', 'error.jade');
 if (!fs.existsSync(errorViewPath)) {
@@ -58,22 +57,19 @@ app.use('/liquidation', liquidationRouter);
 app.use('/liquidation_item', liquidation_itemRouter);
 app.use('/liquidation_activity', liquidation_activityRouter);
 app.use('/district', districtRouter);
+app.use('/notification', notificationRouter);
 
-// catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
 });
 
-// error handler
 app.use(function(err, req, res, next) {
-  // Check if the request is an API request
   const isApiRequest = req.path.startsWith('/api/') || 
                       req.path.startsWith('/liquidation/') ||
                       req.path.startsWith('/cash_request/') ||
                       req.path.startsWith('/route_access/');
 
   if (isApiRequest) {
-    // Return JSON for API errors
     return res.status(err.status || 500).json({
       success: false,
       message: err.message || 'An error occurred',
@@ -81,17 +77,14 @@ app.use(function(err, req, res, next) {
     });
   }
 
-  // For non-API requests, render the error page
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
   res.status(err.status || 500);
   res.render('error');
 });
 
-// Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO
 const io = new Server(server, { 
   cors: {
     origin: "*",
@@ -99,14 +92,11 @@ const io = new Server(server, {
   }
 });
 
-// Make io accessible to our router
 app.set('io', io);
 
-// Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
-  // Re-broadcast cash request events received from any client to all clients
   socket.on('cash_request_updated', (data) => {
     try {
       io.emit('cash_request_updated', { ...data, serverTimestamp: new Date().toISOString() });
@@ -130,7 +120,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Make server and io accessible for www
 app.set('httpServer', server);
 app.set('io', io);
 

@@ -3,7 +3,7 @@ const { createPool } = require("mysql2/promise");
 const { EncrypterString, DecrypterString } = require("./crytography");
 require("dotenv").config();
 
-console.log(EncrypterString("#Ebedaf19dd0d"));
+console.log(DecrypterString("6a77dbbee81cec62da79b87d2f2c5e82"));
 
 
 // Create a connection pool instead of a single connection

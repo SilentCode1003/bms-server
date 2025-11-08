@@ -108,7 +108,6 @@ router.get("/getcash_request", async (req, res) => {
 
       let result = await Select(select_cash_request_sql);
       
-      // Emit socket event for the fetch
       emitCashRequestUpdate(req, 'fetched', {
         event: 'cash_requests_fetched',
         status: 'success',
@@ -131,7 +130,6 @@ router.get("/getcash_request", async (req, res) => {
     await ProcessData();
   } catch (error) {
     console.error("Error fetching cash requests:", error);
-    // Emit error event
     emitCashRequestUpdate(req, 'error', {
       event: 'cash_requests_fetch_error',
       status: 'error',
@@ -366,7 +364,6 @@ router.post("/createcash_request", async (req, res) => {
         ],
       ];
 
-      // Emit event before creating the cash request
       emitCashRequestUpdate(req, 'creating', {
         event: 'cash_request_creating',
         status: 'in_progress',

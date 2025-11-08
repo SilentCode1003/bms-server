@@ -29,13 +29,19 @@ router.get('/getcash_request_activity', async (req, res) => {
                 async function ProcessData() {
                         let select_cash_request_activity_sql = SelectStatement(
                                 `SELECT
-                                cra_id as id,
-                                cra_cash_request_id as cash_request_id,
-                                cra_action as action,
-                                cra_remarks as remarks,
-                                cra_created_at as created_at,
-                                cra_requested_by as requested_by
-                                FROM cash_request_activity
+                                 cra_id AS id,
+                                 cra_cash_request_id AS cash_request_id,
+                                 cra_action AS action,
+                                 cra_remarks AS remarks,
+                                 cra_created_at AS created_at,
+                                 CASE
+                                     WHEN cra_action = 'REQUESTED' THEN CONCAT('Requested by: ', cra_requested_by)
+                                     WHEN cra_action = 'APPROVED' THEN CONCAT('Approved by: ', cra_requested_by)
+                                     WHEN cra_action = 'RECEIVED' THEN CONCAT('Received by: ', cra_requested_by)
+                                     WHEN cra_action = 'REJECTED' THEN CONCAT('Rejected by: ', cra_requested_by)
+                                ELSE cra_requested_by
+                                END AS name
+                                FROM cash_request_activity;
                                 `
                         );
 

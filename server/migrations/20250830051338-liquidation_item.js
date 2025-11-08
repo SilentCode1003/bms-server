@@ -32,7 +32,7 @@ module.exports = {
         type: Sequelize.STRING(120),
         allowNull: false,
       },
-      li_store: {
+      li_store_name: {
         type: Sequelize.STRING(120),
         allowNull: true,
       },

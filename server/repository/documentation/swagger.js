@@ -2718,3 +2718,62 @@ module.exports = swaggerDocs;
  */
 
 //#endregion
+
+//#region Notification API Documentation
+/**
+ * @swagger
+ * /notification/getnotification:
+ *   get:
+ *     summary: Get notification data
+ *     tags: [Notification]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved notification data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 pending_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 approved_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 completed_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 rejected_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 pending_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 approved_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 verified_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 completed_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 incomplete_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 rejected_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ */
+
+//#endregion
