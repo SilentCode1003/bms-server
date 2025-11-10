@@ -93,7 +93,22 @@ router.get('/get_finance_cards', async (req, res) => {
                                 (SELECT COUNT(*) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as verified_liquidations_count,
                                 (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_total,
                                 (SELECT SUM(l_amount_expended +  l_reimburse_return) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as verified_liquidations_total,
-                                (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) - (SELECT SUM(l_amount_expended +  l_reimburse_return) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as outstanding_balance
+                                (
+                                COALESCE(
+                                  (SELECT SUM(cr_amount)
+                                  FROM cash_request
+                                  WHERE cr_status = 'completed' ${whereSql_cr}),
+                                  0
+                                )
+                                -
+                                COALESCE(
+                                  (SELECT SUM(l_amount_expended + l_reimburse_return)
+                                  FROM liquidation
+                                  WHERE l_status = 'verified' ${whereSql_liq}),
+                                  0
+                                )
+                              ) AS outstanding_balance
+
                                 `
             );
 
