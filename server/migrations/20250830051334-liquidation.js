@@ -48,6 +48,11 @@ module.exports = {
         type: Sequelize.ENUM('pending', 'approved', 'verified', 'completed', 'incomplete', 'rejected'),
         allowNull: false,
       },
+      l_notification: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
     });
 
   },

@@ -532,7 +532,7 @@ router.get('/get_teamleader_cards', async (req, res) => {
                        WHERE cr_status = 'pending' ${whereSql_cr} ${employee_id ? "AND cr_employee_id = ?" : ""}) as pending_requests,
                     
                     (SELECT COUNT(*) 
-                       FROM cash_request 
+                       FROM cash_request
                        WHERE cr_status = 'approved' OR cr_status = 'completed' ${whereSql_cr} ${employee_id ? "AND cr_employee_id = ?" : ""}) as approved_requests,
                     
                     (SELECT COUNT(*) 
@@ -550,7 +550,6 @@ router.get('/get_teamleader_cards', async (req, res) => {
 
             let result = await Select(select_teamleader_cards_sql);
 
-            // Emit socket event for the fetch
             emitDashboardUpdate(req, 'teamleader_cards_fetched', {
                 event: 'teamleader_cards_fetched',
                 status: 'success',
@@ -657,13 +656,3 @@ let select_location_expenses_sql = SelectStatement(`
   }
 });
         
-//         `
-//      }
-     
-//      await ProcessData();
-//      return res.status(200).json(result);
-//     } catch (error) {
-//         console.error("Error during get_user_overall_expenses:", error);
-//         res.status(500).json(JsonResposeError(error));
-//     }
-// });

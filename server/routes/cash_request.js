@@ -265,19 +265,29 @@ router.get("/getexisting_liquidation", async (req, res) => {
 
 router.get("/getexisting_cash_request", async (req, res) => {
   try {
-    const { id } = req.query;
+    const { id, notification } = req.query;
+    console.log(id, notification)
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
-        cr_id AS id
+        cr.cr_id as id,
+        cr.cr_reference_id as reference_id,
+        cr.cr_cv_number as cv_number,
+        cr.cr_description as description,
+        cr.cr_team_lead as team_lead,
+        cr.cr_employee as employee,
+        cr.cr_employee_id as employee_id,
+        cr.cr_department as department,
+        cr.cr_position as position,
+        cr.cr_amount as amount,
+        cr.cr_request_date as request_date,
+        cr.cr_status as status
         FROM cash_request cr
         LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
-        WHERE isnull(l.l_status)
-        AND cr_id = ?`,
-        [id]
-      );
-
+        WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
+        [id]);
       let result = await Select(select_liquidation_sql);
+      console.log(result)
       return res.status(200).json(result);
     }
     await ProcessData();
@@ -299,7 +309,7 @@ router.post("/createcash_request", async (req, res) => {
       amount,
       requested_by,
     } = req.body;
-
+console.log(req.body)
     if (
       !description ||
       !team_lead ||
@@ -425,10 +435,12 @@ router.put("/updatecash_request", async (req, res) => {
 
     async function ProcessData() {
       if (status === "approved") {
-        let data = [status, id];
+        let data = [status, 1, id];
         let update_sql = UpdateStatement(
           CashRequests.cash_request.tablename,
-          [CashRequests.cash_request.selectOptionsColumn.status],
+          [CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification
+          ],
           [CashRequests.cash_request.selectOptionsColumn.id]
         );
         await Update(update_sql, [data]);
@@ -441,11 +453,12 @@ router.put("/updatecash_request", async (req, res) => {
         );
         await Insert(activity_insert_sql, activityData);
       } else if (status === "completed") {
-        let data = [[status, cash_voucher, id]];
+        let data = [status, 1, cash_voucher, id];
         let update_sql = UpdateStatement(
           CashRequests.cash_request.tablename,
           [
             CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification,
             CashRequests.cash_request.selectOptionsColumn.cv_number,
           ],
           [CashRequests.cash_request.selectOptionsColumn.id]
@@ -462,13 +475,13 @@ router.put("/updatecash_request", async (req, res) => {
 
         let select_cash_request = SelectStatement(
           `SELECT
-                                        cr_department as department,
-                                        cr_description as particulars,
-                                        cr_cv_number as cash_voucher,
-                                        cr_amount as amount_issue
-                                        FROM cash_request
-                                        WHERE cr_id = ?
-                                        `,
+            cr_department as department,
+            cr_description as particulars,
+            cr_cv_number as cash_voucher,
+            cr_amount as amount_issue
+            FROM cash_request
+            WHERE cr_id = ?
+          `,
           [id]
         );
         let cash_request = await Select(select_cash_request);
@@ -519,10 +532,13 @@ router.put("/updatecash_request", async (req, res) => {
 
         return res.status(200).json(cash_request);
       } else if (status === "rejected") {
-        let data = [[status, id]];
+        let data = [[status, 1, id]];
         let update_sql = UpdateStatement(
           CashRequests.cash_request.tablename,
-          [CashRequests.cash_request.selectOptionsColumn.status],
+          [
+            CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification,
+          ],
           [CashRequests.cash_request.selectOptionsColumn.id]
         );
         await Update(update_sql, data);
@@ -550,7 +566,6 @@ router.put("/updatecash_request", async (req, res) => {
 router.put("/update_cash_request_rejected", async (req, res) => {
         try {
             const { cash_request_id, date, description, team_lead, amount, updated_by } = req.body;
-    
             if (!cash_request_id) {
                 return res.status(400).json(JsonResposeError("Missing cash_request_id"));
             }
@@ -581,6 +596,9 @@ router.put("/update_cash_request_rejected", async (req, res) => {
             if (updateData.length === 0) {
                 return res.status(400).json(JsonResposeError("No fields to update"));
             }
+
+            updateData.push(1);
+            updateFields.push("cr_notification = ?");
     
             updateData.push(cash_request_id);
     
@@ -618,6 +636,29 @@ router.put("/update_cash_request_rejected", async (req, res) => {
             console.error("Error in update_cash_request_rejected:", error);
             res.status(500).json(JsonResposeError(error));
         }
+});
+
+router.put("/updatecash_request_notification", async (req, res) => {
+    try {
+        const { id, notification } = req.body;
+        console.log(req.body);
+        if (!id || notification === undefined) {
+            return res.status(400).json(JsonResposeError("Missing required fields"));
+        }
+
+        let updateData = [[notification, id]];
+        let update_sql = UpdateStatement(
+            CashRequests.cash_request.tablename,
+            [CashRequests.cash_request.selectOptionsColumn.notification],
+            [CashRequests.cash_request.selectOptionsColumn.id]
+        );
+        await Update(update_sql, updateData);
+
+        res.status(200).json(JsonResponseSuccess());
+    } catch (error) {
+        console.error("Error in updatecash_request_notification:", error);
+        res.status(500).json(JsonResposeError(error));
+    }
 });
 
 // router.get('/getcash_request_by_id', async (req, res) => {

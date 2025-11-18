@@ -3,6 +3,8 @@ npx sequelize-cli migration:generate --name master_route_access
 npx sequelize-cli migration:generate --name master_wallet
 npx sequelize-cli migration:generate --name master_wallet_activity
 npx sequelize-cli migration:generate --name master_district
+npx sequelize-cli migration:generate --name red_flags
+npx sequelize-cli migration:generate --name master_min_max
 */
 
 const Masters = {
@@ -91,6 +93,80 @@ const Masters = {
             store_name: "md_store_name",
             city_province: "md_city_province",
             status: "md_status",
+        },
+    },
+    master_min_max: {
+        tablename: "master_min_max",
+        prefix: "mmm_",
+        insertColumns: [
+            "store_name",
+            "from",
+            "to",
+            "mode_of_transportation",
+            "min_amount",
+            "max_amount"
+        ],
+        selectColumns: [
+            "mmm_id",
+            "mmm_store_name",
+            "mmm_from",
+            "mmm_to",
+            "mmm_mode_of_transportation",
+            "mmm_min_amount",
+            "mmm_max_amount"
+        ],
+        selectOptionsColumn: {
+            id: "mmm_id",
+            store_name: "mmm_store_name",
+            from: "mmm_from",
+            to: "mmm_to",
+            mode_of_transportation: "mmm_mode_of_transportation",
+            min_amount: "mmm_min_amount",
+            max_amount: "mmm_max_amount"
+        },
+    },
+    red_flags: {
+        tablename: "red_flags",
+        prefix: "rf_",
+        insertColumns: [
+            "liquidation_id",
+            "liquidation_item_id",
+            "from",
+            "to",
+            "mode_of_transportation",
+            "min_amount",
+            "max_amount",
+            "amount",
+            "created_by",
+            "created_date",
+        ],
+        selectColumns: [
+            "rf_id",
+            "rf_liquidation_id",
+            "rf_liquidation_item_id",
+            "rf_from",
+            "rf_to",
+            "rf_mode_of_transportation",
+            "rf_min_amount",
+            "rf_max_amount",
+            "rf_amount",
+            "rf_created_by",
+            "rf_created_date",
+            "rf_status",
+        ],
+        selectOptionsColumn: {
+            id: "rf_id",
+            liquidation_id: "rf_liquidation_id",
+            liquidation_item_id: "rf_liquidation_item_id",
+            from: "rf_from",
+            to: "rf_to",
+            mode_of_transportation: "rf_mode_of_transportation",
+            min_amount: "rf_min_amount",
+            max_amount: "rf_max_amount",
+            amount: "rf_amount",
+            created_by: "rf_created_by",
+            created_date: "rf_created_date",
+            status: "rf_status",
         },
     },
 

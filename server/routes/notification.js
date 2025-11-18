@@ -31,177 +31,227 @@ router.get('/', function (req, res, next) {
 module.exports = router;
 
 router.get('/getnotification', async (req, res) => {
+    const { user } = req.query;
+    console.log("USER STATUS",user);
     try {
-        async function ProcessData() {
+        let pending_cash_request_result = [];
+        let approved_cash_request_result = [];
+        let completed_cash_request_result = [];
+        let rejected_cash_request_result = [];
+        let pending_liquidation_result = [];
+        let approved_liquidation_result = [];
+        let verified_liquidation_result = [];
+        let completed_liquidation_result = [];
+        let incomplete_liquidation_result = [];
+        let rejected_liquidation_result = [];
+
+        if (user === "Requester" || user === "Team Leader" || user === "Administator") {
             let select_pending_cash_request_sql = SelectStatement(
                 `SELECT
                                 cr_id as id,
                                 cr_reference_id as reference,
                                 cr_employee as employee,
                                 cr_amount as amount,
-                                cr_request_date as request_date,
+                                cr_request_date as date,
                                 cr_status as status
                                 FROM cash_request
                                 WHERE cr_status = 'pending'
+                                AND cr_notification = 1
                                 `
             );
 
-            let pending_cash_request_result = await Select(select_pending_cash_request_sql);
+            pending_cash_request_result = await Select(select_pending_cash_request_sql);
+        }
 
+        if (user === "Requester" || user === "Custodian" || user === "Administrator") {
             let select_approved_cash_request_sql = SelectStatement(
                 `SELECT
                                 cr_id as id,
                                 cr_reference_id as reference,
                                 cr_employee as employee,
                                 cr_amount as amount,
-                                cr_request_date as request_date,
+                                cr_request_date as date,
                                 cr_status as status
                                 FROM cash_request
                                 WHERE cr_status = 'approved'
+                                AND cr_notification = 1
                                 `
             );
 
-            let approved_cash_request_result = await Select(select_approved_cash_request_sql);
+            approved_cash_request_result = await Select(select_approved_cash_request_sql);
+        }
 
+        if (user === "Requester" || user === "Administrator") {
             let select_completed_cash_request_sql = SelectStatement(
                 `SELECT
                                 cr_id as id,
                                 cr_reference_id as reference,
                                 cr_employee as employee,
                                 cr_amount as amount,
-                                cr_request_date as request_date,
+                                cr_request_date as date,
                                 cr_status as status
                                 FROM cash_request
                                 WHERE cr_status = 'completed'
+                                AND cr_notification = 1
                                 `
             );
 
-            let completed_cash_request_result = await Select(select_completed_cash_request_sql);
+            completed_cash_request_result = await Select(select_completed_cash_request_sql);
+        }
 
+        if (user === "Requester" || user === "Administrator") {
             let select_rejected_cash_request_sql = SelectStatement(
                 `SELECT
                                 cr_id as id,
                                 cr_reference_id as reference,
                                 cr_employee as employee,
                                 cr_amount as amount,
-                                cr_request_date as request_date,
+                                cr_request_date as date,
                                 cr_status as status
                                 FROM cash_request
                                 WHERE cr_status = 'rejected'
+                                AND cr_notification = 1
                                 `
             );
 
-            let rejected_cash_request_result = await Select(select_rejected_cash_request_sql);
+            rejected_cash_request_result = await Select(select_rejected_cash_request_sql);
+        }
 
+        if (user === "Requester" || user === "Team Leader" || user === "Administrator") {
             let select_pending_liquidation_sql = SelectStatement(
                 `SELECT
                                 l_id as id,
                                 l_cr_reference_id as reference,
                                 cr_employee as employee,
-                                l_created_date as created_date,
+                                l_created_date as date,
                                 l_status as status
                                 FROM liquidation
                                 LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
                                 WHERE l_status = 'pending'
+                                AND l_notification = 1
                                 `
             );
 
-            let pending_liquidation_result = await Select(select_pending_liquidation_sql);
+            pending_liquidation_result = await Select(select_pending_liquidation_sql);
+        }
 
+        if (user === "Requester" || user === "Custodian" || user === "Administrator") {
             let select_approved_liquidation_sql = SelectStatement(
                 `SELECT
                                 l_id as id,
                                 l_cr_reference_id as reference,
                                 cr_employee as employee,
-                                l_created_date as created_date,
+                                l_created_date as date,
                                 l_status as status
                                 FROM liquidation
                                 LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
                                 WHERE l_status = 'approved'
+                                AND l_notification = 1
                                 `
             );
 
-            let approved_liquidation_result = await Select(select_approved_liquidation_sql);
+            approved_liquidation_result = await Select(select_approved_liquidation_sql);
+        }
 
+        if (user === "Requester" || user === "Finance" || user === "Administrator") {
             let select_verified_liquidation_sql = SelectStatement(
                 `SELECT
                                 l_id as id,
                                 l_cr_reference_id as reference,
                                 cr_employee as employee,
-                                l_created_date as created_date,
+                                l_created_date as date,
                                 l_status as status
                                 FROM liquidation
                                 LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
                                 WHERE l_status = 'verified'
+                                AND l_notification = 1
                                 `
             );
 
-            let verified_liquidation_result = await Select(select_verified_liquidation_sql);
+            verified_liquidation_result = await Select(select_verified_liquidation_sql);
+        }
 
+        if (user === "Requester" || user === "Administrator") {
             let select_completed_liquidation_sql = SelectStatement(
                 `SELECT
                                 l_id as id,
                                 l_cr_reference_id as reference,
                                 cr_employee as employee,
-                                l_created_date as created_date,
+                                l_created_date as date,
                                 l_status as status
                                 FROM liquidation
                                 LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
                                 WHERE l_status = 'completed'
+                                AND l_notification = 1
                                 `
             );
 
-            let completed_liquidation_result = await Select(select_completed_liquidation_sql);
+            completed_liquidation_result = await Select(select_completed_liquidation_sql);
+        }
 
+        if (user === "Requester" || user === "Administrator") {
             let select_incomplete_liquidation_sql = SelectStatement(
                 `SELECT
                                 l_id as id,
                                 l_cr_reference_id as reference,
                                 cr_employee as employee,
-                                l_created_date as created_date,
+                                l_created_date as date,
                                 l_status as status
                                 FROM liquidation
                                 LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
                                 WHERE l_status = 'incomplete'
+                                AND l_notification = 1
                                 `
             );
 
-            let incomplete_liquidation_result = await Select(select_incomplete_liquidation_sql);
+            incomplete_liquidation_result = await Select(select_incomplete_liquidation_sql);
+        }
 
+        if (user === "Requester" || user === "Administrator") {
             let select_rejected_liquidation_sql = SelectStatement(
                 `SELECT
                                 l_id as id,
                                 l_cr_reference_id as reference,
                                 cr_employee as employee,
-                                l_created_date as created_date,
+                                l_created_date as date,
                                 l_status as status
                                 FROM liquidation
                                 LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
                                 WHERE l_status = 'rejected'
+                                AND l_notification = 1
                                 `
             );
 
-            let rejected_liquidation_result = await Select(select_rejected_liquidation_sql);
-
-            emitNotificationUpdate(req, 'fetched', {
-                event: 'notification_fetched',
-                status: 'success',
-                count: result.length,
-                timestamp: new Date().toISOString()
-            });
-
-            const io = req.app.get('io');
-            if (io) {
-                io.emit('notification:fetched', {
-                    status: 'success',
-                    count: result.length,
-                    timestamp: new Date().toISOString()
-                });
-            }
-            return res.status(200).json({ pending_cash_request_result, approved_cash_request_result, completed_cash_request_result, rejected_cash_request_result, pending_liquidation_result, approved_liquidation_result, verified_liquidation_result, completed_liquidation_result, incomplete_liquidation_result, rejected_liquidation_result });
+            rejected_liquidation_result = await Select(select_rejected_liquidation_sql);
         }
 
-        await ProcessData();
+        let count = 0;
+        count += pending_cash_request_result.length;
+        count += approved_cash_request_result.length;
+        count += completed_cash_request_result.length;
+        count += rejected_cash_request_result.length;
+        count += pending_liquidation_result.length;
+        count += approved_liquidation_result.length;
+        count += verified_liquidation_result.length;
+        count += completed_liquidation_result.length;
+        count += incomplete_liquidation_result.length;
+        count += rejected_liquidation_result.length;
+
+        emitNotificationUpdate(req, 'fetched', {
+            event: 'notification_fetched',
+            status: 'success',
+            timestamp: new Date().toISOString()
+        });
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('notification:fetched', {
+                status: 'success',
+                count: count,
+                timestamp: new Date().toISOString()
+            });
+        }
+        return res.status(200).json({ pending_cash_request_result, approved_cash_request_result, completed_cash_request_result, rejected_cash_request_result, pending_liquidation_result, approved_liquidation_result, verified_liquidation_result, completed_liquidation_result, incomplete_liquidation_result, rejected_liquidation_result });
     } catch (error) {
         console.error("Error during login:", error);
         emitNotificationUpdate(req, 'error', {
@@ -209,7 +259,6 @@ router.get('/getnotification', async (req, res) => {
             status: 'error',
             message: 'Failed to fetch notification',
             error: error.message,
-            timestamp: new Date().toISOString()
         });
         res.status(500).json(JsonResposeError(error));
     }

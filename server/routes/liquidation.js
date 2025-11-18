@@ -44,9 +44,9 @@ router.get('/getcash_liquidation', async (req, res) => {
             if (status) {
                 if (status.toLowerCase() === 'verified') {
                     whereConditions.push(`l.l_status IN ('verified','completed')`);
-                } else if(status.toLowerCase() === 'pending'){
+                } else if (status.toLowerCase() === 'pending') {
                     whereConditions.push(`l.l_status = '${status}'`);
-                }else{
+                } else {
                     whereConditions.push(`l.l_status = '${status}'`);
                 }
             }
@@ -301,13 +301,10 @@ router.get('/getapproved_liquidation', async (req, res) => {
 router.post("/create_liquidation", async (req, res) => {
     const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
     let connection;
-
     try {
         const { reference_id, description, amount_obtained, amount_expended, reimburse_return, request_items, remarks, receipts, created_by } = req.body;
-        console.log("create liquidation", req.body);
-
         connection = await beginTransaction();
-
+        console.log(request_items)
         let status = "PENDING";
         let request_date = GetCurrentDatetime();
         let action = "PREPARED";
@@ -322,7 +319,33 @@ router.post("/create_liquidation", async (req, res) => {
             await rollbackTransaction(connection);
             return res.status(400).json(JsonResposeError("Liquidation with same reference id already exists"));
         }
+        if (Array.isArray(request_items) && request_items.length > 0) {
+            const cleanedItems = request_items.map(item => ({
+                store_name: (item.store_name || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase().trim(),
+                to: (item.to || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase().trim()
+            }));
 
+            const uniqueStores = [...new Set(cleanedItems.map(i => i.store_name).filter(Boolean))];
+
+            let hasReachedAllDestinations = false;
+
+            if (uniqueStores.length === 1) {
+                const store = uniqueStores[0];
+                hasReachedAllDestinations = cleanedItems.some(i => i.to === store);
+            } else {
+                hasReachedAllDestinations = uniqueStores.every(store =>
+                    cleanedItems.some(i => i.to === store)
+                );
+            }
+
+            if (!hasReachedAllDestinations) {
+                return res.status(400).json(
+                    JsonResposeError(
+                        "Please mention the store destination you reached in the 'TO' column input field so we know you reached the store."
+                    )
+                );
+            }
+        }
         const io = req.app.get('io');
         if (io) {
             io.emit('liquidation:creating', {
@@ -336,12 +359,12 @@ router.post("/create_liquidation", async (req, res) => {
         }
 
         const liquidationData = [
-            reference_id, 
-            description, 
-            amount_obtained, 
-            amount_expended, 
-            reimburse_return, 
-            request_date, 
+            reference_id,
+            description,
+            amount_obtained,
+            amount_expended,
+            reimburse_return,
+            request_date,
             status
         ];
 
@@ -375,37 +398,16 @@ router.post("/create_liquidation", async (req, res) => {
                 }
             }
 
-            const itemsData = request_items.map(item => [
+            const activityData = [
                 liquidation_id,
-                item.date || "N/A",
-                item.rt || "N/A",
-                item.store_name || "N/A",
-                item.particulars || "N/A",
-                (item.from || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
-                (item.to || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
-                (item.mode_of_transportation || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase() || "N/A",
-                parseFloat(item.amount) || 0
-            ]);
+                action,
+                remarks || "",
+                receipts ? JSON.stringify(receipts) : null,
+                created_at,
+                created_by
+            ];
 
-            const itemInsertSql = InsertStatement(
-                Liquidations.liquidation_item.tablename,
-                Liquidations.liquidation_item.prefix,
-                Liquidations.liquidation_item.insertColumns
-            );
-
-            await connection.query(itemInsertSql, [itemsData]);
-        }
-
-        const activityData = [
-            liquidation_id,
-            action,
-            remarks || "",
-            receipts ? JSON.stringify(receipts) : null,
-            created_at,
-            created_by
-        ];
-
-        const activityInsertSql = `
+            const activityInsertSql = `
             INSERT INTO ${Liquidations.liquidation_activity.tablename} (
                 lia_liquidation_id,
                 lia_action,
@@ -416,9 +418,146 @@ router.post("/create_liquidation", async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
-        await connection.query(activityInsertSql, activityData);
+            await connection.query(activityInsertSql, activityData);
 
-        await commitTransaction(connection);
+            await commitTransaction(connection);
+            const insertedItems = [];
+            const itemInsertSql = InsertStatement(
+                Liquidations.liquidation_item.tablename,
+                Liquidations.liquidation_item.prefix,
+                Liquidations.liquidation_item.insertColumns
+            );
+
+            for (const item of request_items) {
+                const cleanFrom = (item.from || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase();
+                const cleanTo = (item.to || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase();
+                const cleanMode = (item.mode_of_transportation || "").replace(/[^a-zA-Z0-9 ]/g, "").toUpperCase();
+                const amount = parseFloat(item.amount) || 0;
+
+                const values = [
+                    liquidation_id,
+                    item.date || "N/A",
+                    item.rt || "N/A",
+                    item.store_name || "N/A",
+                    item.particulars || "N/A",
+                    cleanFrom,
+                    cleanTo,
+                    cleanMode,
+                    amount
+                ];
+
+                const [result] = await connection.query(itemInsertSql, [[values]]);
+                const insertedId = result.insertId;
+
+                console.log("Inserted liquidation_item_id:", result);
+
+                insertedItems.push({
+                    liquidation_id,
+                    liquidation_item_id: insertedId,
+                    from: cleanFrom,
+                    to: cleanTo,
+                    mode: cleanMode,
+                    amount
+                });
+            }
+
+            // const select_red_flags_sql = SelectStatement(`
+            //     WITH counted AS (
+            //         SELECT 
+            //         li.li_from,
+            //         li.li_to,
+            //         li.li_mode_of_transportation,
+            //         li.li_amount,
+            //         COUNT(*) AS cnt
+            //         FROM liquidation_item li
+            //         LEFT JOIN liquidation l ON li.li_liquidation_id = l.l_id
+            //         WHERE l.l_status != 'rejected'
+            //         GROUP BY li.li_from, li.li_to, li.li_mode_of_transportation, li.li_amount
+            //     ),
+            //     ranked AS (
+            //         SELECT 
+            //         li_from,
+            //         li_to,
+            //         li_mode_of_transportation,
+            //         li_amount,
+            //         cnt,
+            //         DENSE_RANK() OVER (
+            //             PARTITION BY li_from, li_to, li_mode_of_transportation
+            //             ORDER BY cnt DESC
+            //         ) AS rnk
+            //         FROM counted
+            //     )
+            //     SELECT 
+            //         li_from AS started_from,
+            //         li_to AS ended_to,
+            //         li_mode_of_transportation AS mode_of_transportation,
+            //         MIN(CASE WHEN rnk = 1 THEN li_amount END) AS min_amount,
+            //         MAX(CASE WHEN rnk IN (1,2) THEN li_amount END) AS max_amount
+            //     FROM ranked
+            //     GROUP BY li_from, li_to, li_mode_of_transportation
+            //     ORDER BY started_from, ended_to, mode_of_transportation;
+            //     `);
+
+            // const red_flags = await Select(select_red_flags_sql);
+            // const redFlaggedItems = [];
+
+            // for (const item of insertedItems) {
+            //     const match = red_flags.find(
+            //         r =>
+            //             r.started_from === item.from &&
+            //             r.ended_to === item.to &&
+            //             r.mode_of_transportation === item.mode
+            //     );
+
+            //     if (match) {
+            //         const { min_amount, max_amount } = match;
+
+            //         if (item.amount < min_amount || item.amount > max_amount) {
+            //             redFlaggedItems.push({
+            //                 rf_liquidation_id: item.liquidation_id,
+            //                 rf_liquidation_item_id: item.liquidation_item_id,
+            //                 rf_from: item.from,
+            //                 rf_to: item.to,
+            //                 rf_mode_of_transportation: item.mode,
+            //                 rf_amount: item.amount,
+            //                 rf_min_amount: min_amount,
+            //                 rf_max_amount: max_amount,
+            //                 rf_created_by: created_by,
+            //                 rf_created_date: new Date().toISOString().slice(0, 19).replace("T", " ")
+            //             });
+            //         }
+            //     }
+            // }
+
+            // if (redFlaggedItems.length > 0) {
+            //     const redFlagInsertSql = InsertStatement(
+            //         Masters.red_flags.tablename,
+            //         Masters.red_flags.prefix,
+            //         Masters.red_flags.insertColumns
+            //     );
+
+            //     for (const rf of redFlaggedItems) {
+            //         const values = [
+            //             rf.rf_liquidation_id,
+            //             rf.rf_liquidation_item_id,
+            //             rf.rf_from,
+            //             rf.rf_to,
+            //             rf.rf_mode_of_transportation,
+            //             rf.rf_min_amount,
+            //             rf.rf_max_amount,
+            //             rf.rf_amount,
+            //             rf.rf_created_by,
+            //             rf.rf_created_date
+            //         ];
+
+            //         await connection.query(redFlagInsertSql, [[values]]);
+            //     }
+            // }
+
+            // console.log("✅ Red flagged items:", redFlaggedItems);
+        }
+
+
 
         if (io) {
             io.emit('liquidation:created', {
@@ -436,7 +575,7 @@ router.post("/create_liquidation", async (req, res) => {
 
     } catch (error) {
         console.error("Error in create_liquidation:", error);
-        
+
         if (connection) {
             await rollbackTransaction(connection);
         }
@@ -445,11 +584,10 @@ router.post("/create_liquidation", async (req, res) => {
         if (io) {
             io.emit('liquidation:create_error', {
                 message: error.message || 'An error occurred while creating the liquidation',
-                reference_id,
                 timestamp: new Date().toISOString()
             });
         }
-        
+
         res.status(500).json(JsonResposeError(error.message || "An error occurred while creating the liquidation"));
     } finally {
         if (connection) {
@@ -461,7 +599,7 @@ router.post("/create_liquidation", async (req, res) => {
 router.put("/update_liquidation", async (req, res) => {
     try {
         const { status, id, remarks, receipts, created_by } = req.body;
-console.log(req.body)
+        console.log(req.body)
         let created_at = GetCurrentDatetime();
         if (!id || !status) {
             return res.status(400).json(JsonResposeError("Missing required fields"));
@@ -477,10 +615,10 @@ console.log(req.body)
             });
 
             if (status === "approved") {
-                let data = [status, id];
+                let data = [status, 1, id];
                 let update_sql = UpdateStatement(
                     Liquidations.liquidation.tablename,
-                    [Liquidations.liquidation.selectOptionsColumn.status],
+                    [Liquidations.liquidation.selectOptionsColumn.status, Liquidations.liquidation.selectOptionsColumn.notification],
                     [Liquidations.liquidation.selectOptionsColumn.id]
                 );
                 await Update(update_sql, [data]);
@@ -511,10 +649,10 @@ console.log(req.body)
                 });
 
             } else if (status === "verified") {
-                let data = [status, id];
+                let data = [status, 1, id];
                 let update_sql = UpdateStatement(
                     Liquidations.liquidation.tablename,
-                    [Liquidations.liquidation.selectOptionsColumn.status],
+                    [Liquidations.liquidation.selectOptionsColumn.status, Liquidations.liquidation.selectOptionsColumn.notification],
                     [Liquidations.liquidation.selectOptionsColumn.id]
                 );
                 await Update(update_sql, [data]);
@@ -595,7 +733,6 @@ console.log(req.body)
                 );
                 await Insert(wallet_activity_insert_sql, wallet_activityData);
 
-                // Emit verified
                 emitLiquidationUpdate(req, 'verified', {
                     event: 'liquidation_verified',
                     status: 'success',
@@ -612,10 +749,11 @@ console.log(req.body)
             } else if (status === "completed") {
 
 
-                let data = [status, id];
+                let data = [status, 1, id];
                 let update_sql = UpdateStatement(
                     Liquidations.liquidation.tablename,
-                    [Liquidations.liquidation.selectOptionsColumn.status],
+                    [Liquidations.liquidation.selectOptionsColumn.status,
+                    Liquidations.liquidation.selectOptionsColumn.notification],
                     [Liquidations.liquidation.selectOptionsColumn.id]
                 );
                 await Update(update_sql, [data]);
@@ -637,7 +775,6 @@ console.log(req.body)
                 );
                 await Insert(activity_insert_sql, activityData);
 
-                // Emit completed
                 emitLiquidationUpdate(req, 'completed', {
                     event: 'liquidation_completed',
                     status: 'success',
@@ -649,11 +786,12 @@ console.log(req.body)
 
             } else if (status === "rejected") {
                 let data = [
-                    [status, id],
+                    [status, 1,  id],
                 ];
                 let update_sql = UpdateStatement(
                     Liquidations.liquidation.tablename,
-                    [Liquidations.liquidation.selectOptionsColumn.status],
+                    [Liquidations.liquidation.selectOptionsColumn.status,
+                    Liquidations.liquidation.selectOptionsColumn.notification],
                     [Liquidations.liquidation.selectOptionsColumn.id],
                 );
                 await Update(update_sql, data);
@@ -675,7 +813,6 @@ console.log(req.body)
                 );
                 await Insert(activity_insert_sql, activityData);
 
-                // Emit rejected
                 emitLiquidationUpdate(req, 'rejected', {
                     event: 'liquidation_rejected',
                     status: 'success',
@@ -686,11 +823,12 @@ console.log(req.body)
                 });
             } else if (status === "incomplete") {
                 let data = [
-                    [status, id],
+                    [status, 1, id],
                 ];
                 let update_sql = UpdateStatement(
                     Liquidations.liquidation.tablename,
-                    [Liquidations.liquidation.selectOptionsColumn.status],
+                    [Liquidations.liquidation.selectOptionsColumn.status,
+                    Liquidations.liquidation.selectOptionsColumn.notification],
                     [Liquidations.liquidation.selectOptionsColumn.id],
                 );
                 await Update(update_sql, data);
@@ -711,7 +849,7 @@ console.log(req.body)
                     Liquidations.liquidation_activity.insertColumns
                 );
                 await Insert(activity_insert_sql, activityData);
-                
+
                 emitLiquidationUpdate(req, 'incomplete', {
                     event: 'liquidation_incomplete',
                     status: 'success',
@@ -721,7 +859,7 @@ console.log(req.body)
                     timestamp: new Date().toISOString()
                 });
             }
-            
+
             emitLiquidationUpdate(req, 'updated', {
                 event: 'liquidation_updated',
                 status: 'success',
@@ -744,7 +882,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
     const { beginTransaction, commitTransaction, rollbackTransaction } = require('../repository/helper/dbconnect');
     let connection;
     try {
-        const { liquidation_id, items, remarks, receipts, status } = req.body;
+        const { liquidation_id, items, remarks, receipts, status, updated_by } = req.body;
         console.log("update liquidation rejected", req.body);
 
         if (!liquidation_id) {
@@ -768,9 +906,9 @@ router.put("/update_liquidation_rejected", async (req, res) => {
         try {
             let storedReceipts = Array.isArray(receipts)
                 ? receipts.map((r, i) => ({
-                      id: r.id || (i + 1).toString(),
-                      image: r.image || "",
-                  }))
+                    id: r.id || (i + 1).toString(),
+                    image: r.image || "",
+                }))
                 : [];
 
             const [liquidation] = await connection.query(
@@ -799,6 +937,10 @@ router.put("/update_liquidation_rejected", async (req, res) => {
             );
 
             await connection.query(
+                `DELETE FROM red_flags WHERE rf_liquidation_id = ?`,
+                [liquidation_id]
+            );
+            await connection.query(
                 `DELETE FROM liquidation_item WHERE li_liquidation_id = ?`,
                 [liquidation_id]
             );
@@ -822,6 +964,120 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                     Liquidations.liquidation_item.insertColumns
                 );
                 await connection.query(insert_item_sql, [itemsData]);
+
+                const [insertedRows] = await connection.query(
+                    `SELECT li_id, li_liquidation_id, li_from, li_to, li_mode_of_transportation, li_amount 
+                    FROM liquidation_item 
+                    WHERE li_liquidation_id = ? 
+                    ORDER BY li_id DESC LIMIT ?`,
+                    [liquidation_id, itemsData.length]
+                );
+
+                const insertedItems = insertedRows.map(row => ({
+                    liquidation_id: row.li_liquidation_id,
+                    liquidation_item_id: row.li_id,
+                    from: row.li_from,
+                    to: row.li_to,
+                    mode: row.li_mode_of_transportation,
+                    amount: parseFloat(row.li_amount) || 0
+                }));
+                // if (insertedItems.length > 0) {
+                //     const select_red_flags_sql = `
+                //         WITH counted AS (
+                //             SELECT 
+                //                 li.li_from,
+                //                 li.li_to,
+                //                 li.li_mode_of_transportation,
+                //                 li.li_amount,
+                //                 COUNT(*) AS cnt
+                //             FROM liquidation_item li
+                //             LEFT JOIN liquidation l ON li.li_liquidation_id = l.l_id
+                //             WHERE l.l_status != 'rejected'
+                //             AND li.li_liquidation_id != ?
+                //             GROUP BY li.li_from, li.li_to, li.li_mode_of_transportation, li.li_amount
+                //         ),
+                //         ranked AS (
+                //             SELECT 
+                //                 li_from,
+                //                 li_to,
+                //                 li_mode_of_transportation,
+                //                 li_amount,
+                //                 cnt,
+                //                 DENSE_RANK() OVER (
+                //                     PARTITION BY li_from, li_to, li_mode_of_transportation
+                //                     ORDER BY cnt DESC
+                //                 ) AS rnk
+                //             FROM counted
+                //         )
+                //         SELECT 
+                //             li_from AS started_from,
+                //             li_to AS ended_to,
+                //             li_mode_of_transportation AS mode_of_transportation,
+                //             MIN(CASE WHEN rnk = 1 THEN li_amount END) AS min_amount,
+                //             MAX(CASE WHEN rnk IN (1,2) THEN li_amount END) AS max_amount
+                //         FROM ranked
+                //         GROUP BY li_from, li_to, li_mode_of_transportation
+                //         ORDER BY started_from, ended_to, mode_of_transportation;
+                //     `;
+
+                //     const [red_flags] = await connection.query(select_red_flags_sql, [liquidation_id]);
+                //     const redFlaggedItems = [];
+
+                //     for (const item of insertedItems) {
+                //         const match = red_flags.find(
+                //             r =>
+                //                 r.started_from === item.from &&
+                //                 r.ended_to === item.to &&
+                //                 r.mode_of_transportation === item.mode
+                //         );
+
+                //         if (match) {
+                //             const { min_amount, max_amount } = match;
+
+                //             if (item.amount < min_amount || item.amount > max_amount) {
+                //                 redFlaggedItems.push({
+                //                     rf_liquidation_id: item.liquidation_id,
+                //                     rf_liquidation_item_id: item.liquidation_item_id,
+                //                     rf_from: item.from,
+                //                     rf_to: item.to,
+                //                     rf_mode_of_transportation: item.mode,
+                //                     rf_amount: item.amount,
+                //                     rf_min_amount: min_amount,
+                //                     rf_max_amount: max_amount,
+                //                     rf_created_by: updated_by,
+                //                     rf_created_date: new Date().toISOString().slice(0, 19).replace("T", " ")
+                //                 });
+                //             }
+                //         }
+                //     }
+
+                //     if (redFlaggedItems.length > 0) {
+                //         const redFlagInsertSql = InsertStatement(
+                //             Masters.red_flags.tablename,
+                //             Masters.red_flags.prefix,
+                //             Masters.red_flags.insertColumns
+                //         );
+
+                //         for (const rf of redFlaggedItems) {
+                //             const values = [
+                //                 rf.rf_liquidation_id,
+                //                 rf.rf_liquidation_item_id,
+                //                 rf.rf_from,
+                //                 rf.rf_to,
+                //                 rf.rf_mode_of_transportation,
+                //                 rf.rf_min_amount,
+                //                 rf.rf_max_amount,
+                //                 rf.rf_amount,
+                //                 rf.rf_created_by,
+                //                 rf.rf_created_date
+                //             ];
+
+                //             await connection.query(redFlagInsertSql, [[values]]);
+                //         }
+                //     }
+
+                //     console.log("✅ Red flagged items:", redFlaggedItems);
+                // }
             }
 
             await connection.query(
@@ -837,28 +1093,31 @@ router.put("/update_liquidation_rejected", async (req, res) => {
                     "PREPARED"
                 ]
             );
-
-            if(status!="incomplete"){
+            if (status != "incomplete") {
                 await connection.query(
                     `UPDATE liquidation 
-                     SET l_status = ? 
+                     SET l_status = ?,
+                     l_notification = 1
                      WHERE l_id = ?`,
                     ["pending", liquidation_id]
                 );
             } else {
                 await connection.query(
                     `UPDATE liquidation 
-                     SET l_status = ? 
+                     SET l_status = ?,
+                     l_notification = 1 
                      WHERE l_id = ?`,
                     ["verified", liquidation_id]
                 );
             }
-            
+
             await connection.query(
                 `DELETE FROM liquidation_activity 
                  WHERE lia_liquidation_id = ? AND lia_action != 'PREPARED'`,
                 [liquidation_id]
             );
+
+
 
             await commitTransaction(connection);
 
@@ -885,3 +1144,25 @@ router.put("/update_liquidation_rejected", async (req, res) => {
     }
 });
 
+router.put("/update_liquidation_notification", async (req, res) => {
+    try {
+        const { id, notification } = req.body;
+        console.log(req.body);
+        if (!id || notification === undefined) {
+            return res.status(400).json(JsonResposeError("Missing required fields"));
+        }
+
+        let updateData = [[notification, id]];
+        let update_liquidation_sql = UpdateStatement(
+            Liquidations.liquidation.tablename,
+            [Liquidations.liquidation.selectOptionsColumn.notification],
+            [Liquidations.liquidation.selectOptionsColumn.id]
+        );
+        await Update(update_liquidation_sql, updateData);
+
+        res.status(200).json(JsonResponseSuccess());
+    } catch (error) {
+        console.error("Error in update_liquidation_notification:", error);
+        res.status(500).json(JsonResposeError(error));
+    }
+});
