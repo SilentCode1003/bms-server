@@ -48,16 +48,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Team Leader" || user === "Administator") {
             let select_pending_cash_request_sql = SelectStatement(
                 `SELECT
-                                cr_id as id,
-                                cr_reference_id as reference,
-                                cr_employee as employee,
-                                cr_amount as amount,
-                                cr_request_date as date,
-                                cr_status as status
-                                FROM cash_request
-                                WHERE cr_status = 'pending'
-                                AND cr_notification = 1
-                                `
+                cr_id as id,
+                cr_reference_id as reference,
+                cr_employee as employee,
+                cr_amount as amount,
+                cra_created_at as date,
+                cr_status as status
+                FROM cash_request
+                LEFT JOIN cash_request_activity ON cr_id = cra_cash_request_id
+                WHERE cr_status = 'pending' AND cra_action = 'REQUESTED'
+                AND cr_notification = 1
+                `
             );
 
             pending_cash_request_result = await Select(select_pending_cash_request_sql);
@@ -66,16 +67,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Custodian" || user === "Administrator") {
             let select_approved_cash_request_sql = SelectStatement(
                 `SELECT
-                                cr_id as id,
-                                cr_reference_id as reference,
-                                cr_employee as employee,
-                                cr_amount as amount,
-                                cr_request_date as date,
-                                cr_status as status
-                                FROM cash_request
-                                WHERE cr_status = 'approved'
-                                AND cr_notification = 1
-                                `
+                cr_id as id,
+                cr_reference_id as reference,
+                cr_employee as employee,
+                cr_amount as amount,
+                cra_created_at as date,
+                cr_status as status
+                FROM cash_request
+                LEFT JOIN cash_request_activity ON cr_id = cra_cash_request_id
+                WHERE cr_status = 'approved' AND cra_action = 'APPROVED'
+                AND cr_notification = 1
+                `
             );
 
             approved_cash_request_result = await Select(select_approved_cash_request_sql);
@@ -84,16 +86,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Administrator") {
             let select_completed_cash_request_sql = SelectStatement(
                 `SELECT
-                                cr_id as id,
-                                cr_reference_id as reference,
-                                cr_employee as employee,
-                                cr_amount as amount,
-                                cr_request_date as date,
-                                cr_status as status
-                                FROM cash_request
-                                WHERE cr_status = 'completed'
-                                AND cr_notification = 1
-                                `
+                cr_id as id,
+                cr_reference_id as reference,
+                cr_employee as employee,
+                cr_amount as amount,
+                cr_request_date as date,
+                cr_status as status
+                FROM cash_request
+                LEFT JOIN cash_request_activity ON cr_id = cra_cash_request_id
+                WHERE cr_status = 'completed' AND cra_action = 'RECEIVED'
+                AND cr_notification = 1
+                `
             );
 
             completed_cash_request_result = await Select(select_completed_cash_request_sql);
@@ -102,16 +105,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Administrator") {
             let select_rejected_cash_request_sql = SelectStatement(
                 `SELECT
-                                cr_id as id,
-                                cr_reference_id as reference,
-                                cr_employee as employee,
-                                cr_amount as amount,
-                                cr_request_date as date,
-                                cr_status as status
-                                FROM cash_request
-                                WHERE cr_status = 'rejected'
-                                AND cr_notification = 1
-                                `
+                cr_id as id,
+                cr_reference_id as reference,
+                cr_employee as employee,
+                cr_amount as amount,
+                cr_request_date as date,
+                cr_status as status
+                FROM cash_request
+                LEFT JOIN cash_request_activity ON cr_id = cra_cash_request_id
+                WHERE cr_status = 'rejected' AND cra_action = 'REJECTED'
+                AND cr_notification = 1
+                `
             );
 
             rejected_cash_request_result = await Select(select_rejected_cash_request_sql);
@@ -120,16 +124,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Team Leader" || user === "Administrator") {
             let select_pending_liquidation_sql = SelectStatement(
                 `SELECT
-                                l_id as id,
-                                l_cr_reference_id as reference,
-                                cr_employee as employee,
-                                l_created_date as date,
-                                l_status as status
-                                FROM liquidation
-                                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                                WHERE l_status = 'pending'
-                                AND l_notification = 1
-                                `
+                l_id as id,
+                l_cr_reference_id as reference,
+                cr_employee as employee,
+                lia_created_at as date,
+                l_status as status
+                FROM liquidation
+                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
+                LEFT JOIN liquidation_activity ON l_id = lia_liquidation_id
+                WHERE l_status = 'pending' AND lia_action = 'PREPARED'
+                AND l_notification = 1
+                `
             );
 
             pending_liquidation_result = await Select(select_pending_liquidation_sql);
@@ -138,16 +143,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Custodian" || user === "Administrator") {
             let select_approved_liquidation_sql = SelectStatement(
                 `SELECT
-                                l_id as id,
-                                l_cr_reference_id as reference,
-                                cr_employee as employee,
-                                l_created_date as date,
-                                l_status as status
-                                FROM liquidation
-                                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                                WHERE l_status = 'approved'
-                                AND l_notification = 1
-                                `
+                l_id as id,
+                l_cr_reference_id as reference,
+                cr_employee as employee,
+                lia_created_at as date,
+                l_status as status
+                FROM liquidation
+                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
+                LEFT JOIN liquidation_activity ON l_id = lia_liquidation_id
+                WHERE l_status = 'approved' AND lia_action = 'NOTED'
+                AND l_notification = 1
+                `
             );
 
             approved_liquidation_result = await Select(select_approved_liquidation_sql);
@@ -156,16 +162,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Finance" || user === "Administrator") {
             let select_verified_liquidation_sql = SelectStatement(
                 `SELECT
-                                l_id as id,
-                                l_cr_reference_id as reference,
-                                cr_employee as employee,
-                                l_created_date as date,
-                                l_status as status
-                                FROM liquidation
-                                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                                WHERE l_status = 'verified'
-                                AND l_notification = 1
-                                `
+                l_id as id,
+                l_cr_reference_id as reference,
+                cr_employee as employee,
+                lia_created_at as date,
+                l_status as status
+                FROM liquidation
+                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
+                LEFT JOIN liquidation_activity ON l_id = lia_liquidation_id
+                WHERE l_status = 'verified' AND lia_action = 'CHECKED'
+                AND l_notification = 1
+                `
             );
 
             verified_liquidation_result = await Select(select_verified_liquidation_sql);
@@ -174,16 +181,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Administrator") {
             let select_completed_liquidation_sql = SelectStatement(
                 `SELECT
-                                l_id as id,
-                                l_cr_reference_id as reference,
-                                cr_employee as employee,
-                                l_created_date as date,
-                                l_status as status
-                                FROM liquidation
-                                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                                WHERE l_status = 'completed'
-                                AND l_notification = 1
-                                `
+                l_id as id,
+                l_cr_reference_id as reference,
+                cr_employee as employee,
+                lia_created_at as date,
+                l_status as status
+                FROM liquidation
+                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
+                LEFT JOIN liquidation_activity ON l_id = lia_liquidation_id
+                WHERE l_status = 'completed' AND lia_action = 'APPROVED'
+                AND l_notification = 1
+                `
             );
 
             completed_liquidation_result = await Select(select_completed_liquidation_sql);
@@ -192,16 +200,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Administrator") {
             let select_incomplete_liquidation_sql = SelectStatement(
                 `SELECT
-                                l_id as id,
-                                l_cr_reference_id as reference,
-                                cr_employee as employee,
-                                l_created_date as date,
-                                l_status as status
-                                FROM liquidation
-                                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                                WHERE l_status = 'incomplete'
-                                AND l_notification = 1
-                                `
+                l_id as id,
+                l_cr_reference_id as reference,
+                cr_employee as employee,
+                lia_created_at as date,
+                l_status as status
+                FROM liquidation
+                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
+                LEFT JOIN liquidation_activity ON l_id = lia_liquidation_id
+                WHERE l_status = 'incomplete' AND lia_action = 'INCOMPLETE'
+                AND l_notification = 1
+                `
             );
 
             incomplete_liquidation_result = await Select(select_incomplete_liquidation_sql);
@@ -210,16 +219,17 @@ router.get('/getnotification', async (req, res) => {
         if (user === "Requester" || user === "Administrator") {
             let select_rejected_liquidation_sql = SelectStatement(
                 `SELECT
-                                l_id as id,
-                                l_cr_reference_id as reference,
-                                cr_employee as employee,
-                                l_created_date as date,
-                                l_status as status
-                                FROM liquidation
-                                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                                WHERE l_status = 'rejected'
-                                AND l_notification = 1
-                                `
+                l_id as id,
+                l_cr_reference_id as reference,
+                cr_employee as employee,
+                lia_created_at as date,
+                l_status as status
+                FROM liquidation
+                LEFT JOIN cash_request ON l_cr_reference_id = cr_reference_id
+                LEFT JOIN liquidation_activity ON l_id = lia_liquidation_id
+                WHERE l_status = 'rejected' AND lia_action = 'REJECTED'
+                AND l_notification = 1
+                `
             );
 
             rejected_liquidation_result = await Select(select_rejected_liquidation_sql);

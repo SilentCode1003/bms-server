@@ -14,7 +14,15 @@ const {
 } = require("../repository/helper/customhelper");
 const { CashRequests } = require("../repository/model/cash_request");
 const { Masters } = require("../repository/model/masters");
-const { Select, Insert, Update, Delete } = require("../repository/helper/dbconnect");
+const {
+  Select,
+  Insert,
+  Update,
+  Delete,
+  beginTransaction,
+  commitTransaction,
+  rollbackTransaction,
+} = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
 const {
   EncrypterString,
@@ -25,7 +33,7 @@ const router = express.Router();
 
 // Function to emit cash request updates
 const emitCashRequestUpdate = (req, event, data) => {
-  const io = req.app.get('io');
+  const io = req.app.get("io");
   if (io) {
     io.emit(`cash_request:${event}`, data);
   }
@@ -57,7 +65,7 @@ router.get("/getcash_request", async (req, res) => {
 
       let whereClause =
         whereConditions.length > 0
-          ? `WHERE ${whereConditions.join(" AND ")}` 
+          ? `WHERE ${whereConditions.join(" AND ")}`
           : "";
 
       let select_cash_request_sql = SelectStatement(
@@ -107,20 +115,20 @@ router.get("/getcash_request", async (req, res) => {
       );
 
       let result = await Select(select_cash_request_sql);
-      
-      emitCashRequestUpdate(req, 'fetched', {
-        event: 'cash_requests_fetched',
-        status: 'success',
+
+      emitCashRequestUpdate(req, "fetched", {
+        event: "cash_requests_fetched",
+        status: "success",
         count: result.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
-      const io = req.app.get('io');
+      const io = req.app.get("io");
       if (io) {
-        io.emit('cash_request:fetched', {
-          status: 'success',
+        io.emit("cash_request:fetched", {
+          status: "success",
           count: result.length,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -130,12 +138,12 @@ router.get("/getcash_request", async (req, res) => {
     await ProcessData();
   } catch (error) {
     console.error("Error fetching cash requests:", error);
-    emitCashRequestUpdate(req, 'error', {
-      event: 'cash_requests_fetch_error',
-      status: 'error',
-      message: 'Failed to fetch cash requests',
+    emitCashRequestUpdate(req, "error", {
+      event: "cash_requests_fetch_error",
+      status: "error",
+      message: "Failed to fetch cash requests",
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
     res.status(500).json(JsonResposeError(error));
   }
@@ -159,7 +167,6 @@ router.get("/getapproved_cash_request", async (req, res) => {
                                     cr.cr_amount as amount,
                                     cr.cr_request_date as request_date,
                                     cr.cr_status as status,
-                              
                                     (
                                         SELECT JSON_ARRAYAGG(
                                             JSON_OBJECT(
@@ -198,19 +205,19 @@ router.get("/getapproved_cash_request", async (req, res) => {
 
       let result = await Select(select_cash_request_sql);
 
-      emitCashRequestUpdate(req, 'approved_fetched', {
-        event: 'approved_cash_requests_fetched',
-        status: 'success',
+      emitCashRequestUpdate(req, "approved_fetched", {
+        event: "approved_cash_requests_fetched",
+        status: "success",
         count: result.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
-      const io = req.app.get('io');
+      const io = req.app.get("io");
       if (io) {
-        io.emit('cash_request:approved_fetched', {
-          status: 'success',
+        io.emit("cash_request:approved_fetched", {
+          status: "success",
           count: result.length,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -266,7 +273,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
 router.get("/getexisting_cash_request", async (req, res) => {
   try {
     const { id, notification } = req.query;
-    console.log(id, notification)
+    console.log(id, notification);
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
@@ -285,9 +292,10 @@ router.get("/getexisting_cash_request", async (req, res) => {
         FROM cash_request cr
         LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
         WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
-        [id]);
+        [id]
+      );
       let result = await Select(select_liquidation_sql);
-      console.log(result)
+      console.log(result);
       return res.status(200).json(result);
     }
     await ProcessData();
@@ -309,7 +317,7 @@ router.post("/createcash_request", async (req, res) => {
       amount,
       requested_by,
     } = req.body;
-console.log(req.body)
+    console.log(req.body);
     if (
       !description ||
       !team_lead ||
@@ -322,91 +330,141 @@ console.log(req.body)
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
-    
+
     let select_liquidation_sql = "";
-      select_liquidation_sql = SelectStatement(
-        `SELECT cr_id
+    select_liquidation_sql = SelectStatement(
+      `SELECT cr_id
         FROM cash_request
         LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
         WHERE cr_employee_id = ?
         AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected'))`,
-        [employee_id]
-      );
+      [employee_id]
+    );
 
-      let result2 = await Select(select_liquidation_sql);
-      if (result2.length > 0) {
-        return res.status(400).json(JsonResposeError("You cannot create a new cash request"));
-      }
+    let result2 = await Select(select_liquidation_sql);
+    if (result2.length > 0) {
+      return res
+        .status(400)
+        .json(JsonResposeError("You cannot create a new cash request"));
+    }
 
     let status = "PENDING";
     let request_date = GetCurrentDatetime();
     let action = "REQUESTED";
     let created_at = GetCurrentDatetime();
 
-    async function ProcessData() {
-      let maxReferenceIdQuery = SelectStatement(
-        `SELECT MAX(CAST(SUBSTRING_INDEX(cr_reference_id, '-', -1) AS UNSIGNED)) AS max_sequence 
+    let connection;
+    try {
+      connection = await beginTransaction();
+
+      let sequence = null;
+      try {
+        await connection.query(
+          `INSERT INTO seq (name, val) VALUES ('cr', 0) ON DUPLICATE KEY UPDATE val = val`
+        );
+        const [updRes] = await connection.query(
+          `UPDATE seq SET val = LAST_INSERT_ID(val + 1) WHERE name = 'cr'`
+        );
+        sequence = updRes.insertId || null;
+      } catch (seqErr) {
+        try {
+          const maxReferenceIdQuery = SelectStatement(
+            `SELECT MAX(CAST(SUBSTRING_INDEX(cr_reference_id, '-', -1) AS UNSIGNED)) AS max_sequence 
                                   FROM cash_request 
                                   WHERE cr_reference_id LIKE CONCAT('CR-', DATE_FORMAT(NOW(), '%y%m%d'), '-%')`
-      );
-      let maxReferenceIdResult = await Select(maxReferenceIdQuery);
-      let maxSequence = maxReferenceIdResult[0]?.max_sequence || 0;
+          );
+          const [maxReferenceIdResult] = await connection.query(
+            maxReferenceIdQuery
+          );
+          let maxSequence = maxReferenceIdResult[0]?.max_sequence || 0;
+          sequence = maxSequence + 1;
+        } catch (fallbackErr) {
+          await rollbackTransaction(connection);
+          return res.status(500).json(JsonResposeError(fallbackErr));
+        }
+      }
+
       let currentDate = new Date();
       let year = currentDate.getFullYear().toString().slice(-2);
       let month = String(currentDate.getMonth() + 1).padStart(2, "0");
       let day = String(currentDate.getDate()).padStart(2, "0");
-      let sequence = (maxSequence + 1).toString().padStart(4, "0");
-      let reference_id = `CR-${year}${month}${day}-${sequence}`;
+      let seqStr = String(sequence).padStart(4, "0");
+      let reference_id = `CR-${year}${month}${day}-${seqStr}`;
 
-      let data = [
-        [
-          reference_id,
-          0,
-          description,
-          team_lead,
-          employee,
-          employee_id,
-          department,
-          position,
-          amount,
-          request_date,
-          status,
-        ],
+      const insertSql = `INSERT INTO ${CashRequests.cash_request.tablename} (
+        cr_reference_id, cr_cv_number, cr_description, cr_team_lead, cr_employee,
+        cr_employee_id, cr_department, cr_position, cr_amount, cr_request_date, cr_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+      const insertValues = [
+        reference_id,
+        0,
+        description,
+        team_lead,
+        employee,
+        employee_id,
+        department,
+        position,
+        amount,
+        request_date,
+        status,
       ];
 
-      emitCashRequestUpdate(req, 'creating', {
-        event: 'cash_request_creating',
-        status: 'in_progress',
-        reference_id,
-        timestamp: new Date().toISOString()
-      });
-
-      let insert_sql = InsertStatement(
-        CashRequests.cash_request.tablename,
-        CashRequests.cash_request.prefix,
-        CashRequests.cash_request.insertColumns
+      const [cashRequestResult] = await connection.query(
+        insertSql,
+        insertValues
       );
-
-      let cashRequestResult = await Insert(insert_sql, data);
-      let cash_request_id = cashRequestResult[0]?.id || cashRequestResult.id;
+      const cash_request_id = cashRequestResult.insertId;
       if (!cash_request_id) {
-        throw new Error("Failed to insert cash request");
+        await rollbackTransaction(connection);
+        return res
+          .status(500)
+          .json(JsonResposeError("Failed to insert cash request"));
       }
 
-      let activityData = [
-        [cash_request_id, action, "", created_at, requested_by],
+      const activityInsertSql = `INSERT INTO ${CashRequests.cash_request_activity.tablename} (
+        cra_cash_request_id, cra_action, cra_remarks, cra_created_at, cra_requested_by
+      ) VALUES (?, ?, ?, ?, ?)`;
+
+      const activityValues = [
+        cash_request_id,
+        action,
+        "",
+        created_at,
+        requested_by,
       ];
-      let activity_insert_sql = InsertStatement(
-        CashRequests.cash_request_activity.tablename,
-        CashRequests.cash_request_activity.prefix,
-        CashRequests.cash_request_activity.insertColumns
-      );
-      await Insert(activity_insert_sql, activityData);
+      await connection.query(activityInsertSql, activityValues);
+
+      await commitTransaction(connection);
+
+      emitCashRequestUpdate(req, "created", {
+        event: "cash_request_created",
+        status: "success",
+        reference_id,
+        id: cash_request_id,
+        timestamp: new Date().toISOString(),
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("cash_request:created", {
+          status: "success",
+          reference_id,
+          id: cash_request_id,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       res.status(200).json(JsonResponseSuccess());
+    } catch (err) {
+      if (connection) {
+        try {
+          await rollbackTransaction(connection);
+        } catch (_) {}
+      }
+      throw err;
+    } finally {
     }
-
-    await ProcessData();
   } catch (error) {
     console.log(error);
     res.status(500).json(JsonResposeError(error));
@@ -438,8 +496,9 @@ router.put("/updatecash_request", async (req, res) => {
         let data = [status, 1, id];
         let update_sql = UpdateStatement(
           CashRequests.cash_request.tablename,
-          [CashRequests.cash_request.selectOptionsColumn.status,
-            CashRequests.cash_request.selectOptionsColumn.notification
+          [
+            CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification,
           ],
           [CashRequests.cash_request.selectOptionsColumn.id]
         );
@@ -564,101 +623,109 @@ router.put("/updatecash_request", async (req, res) => {
 });
 
 router.put("/update_cash_request_rejected", async (req, res) => {
-        try {
-            const { cash_request_id, date, description, team_lead, amount, updated_by } = req.body;
-            if (!cash_request_id) {
-                return res.status(400).json(JsonResposeError("Missing cash_request_id"));
-            }
-    
-            let updateData = [];
-            let updateFields = [];
-            
-            if (date !== undefined) {
-                updateData.push(date);
-                updateFields.push("cr_date = ?");
-            }
-            
-            if (description !== undefined) {
-                updateData.push(description);
-                updateFields.push("cr_description = ?");
-            }
-            
-            if (team_lead !== undefined) {
-                updateData.push(team_lead);
-                updateFields.push("cr_team_lead = ?");
-            }
-            
-            if (amount !== undefined) {
-                updateData.push(parseFloat(amount));
-                updateFields.push("cr_amount = ?");
-            }
-    
-            if (updateData.length === 0) {
-                return res.status(400).json(JsonResposeError("No fields to update"));
-            }
+  try {
+    const {
+      cash_request_id,
+      date,
+      description,
+      team_lead,
+      amount,
+      updated_by,
+    } = req.body;
+    if (!cash_request_id) {
+      return res.status(400).json(JsonResposeError("Missing cash_request_id"));
+    }
 
-            updateData.push(1);
-            updateFields.push("cr_notification = ?");
-    
-            updateData.push(cash_request_id);
-    
-            let updateQuery = `UPDATE cash_request SET ${updateFields.join(", ")}, cr_status = 'PENDING' WHERE cr_id = ?`;
-            
-            await Update(updateQuery, updateData);
+    let updateData = [];
+    let updateFields = [];
 
-            await Delete(
-                `DELETE FROM cash_request_activity 
+    if (date !== undefined) {
+      updateData.push(date);
+      updateFields.push("cr_date = ?");
+    }
+
+    if (description !== undefined) {
+      updateData.push(description);
+      updateFields.push("cr_description = ?");
+    }
+
+    if (team_lead !== undefined) {
+      updateData.push(team_lead);
+      updateFields.push("cr_team_lead = ?");
+    }
+
+    if (amount !== undefined) {
+      updateData.push(parseFloat(amount));
+      updateFields.push("cr_amount = ?");
+    }
+
+    if (updateData.length === 0) {
+      return res.status(400).json(JsonResposeError("No fields to update"));
+    }
+
+    updateData.push(1);
+    updateFields.push("cr_notification = ?");
+
+    updateData.push(cash_request_id);
+
+    let updateQuery = `UPDATE cash_request SET ${updateFields.join(
+      ", "
+    )}, cr_status = 'PENDING' WHERE cr_id = ?`;
+
+    await Update(updateQuery, updateData);
+
+    await Delete(
+      `DELETE FROM cash_request_activity 
                 WHERE cra_cash_request_id = ? AND cra_action IN ('REQUESTED', 'APPROVED', 'RECEIVED', 'REJECTED')`,
-                [cash_request_id]
-            );
-    
-            const activityData = [
-                [
-                    cash_request_id,
-                    "REQUESTED",
-                    "Cash request was updated after rejection",
-                    GetCurrentDatetime(),
-                    updated_by
-                ]
-            ];
-    
-            const activityInsertSql = InsertStatement(
-                CashRequests.cash_request_activity.tablename,
-                CashRequests.cash_request_activity.prefix,
-                CashRequests.cash_request_activity.insertColumns
-            );
-    
-            await Insert(activityInsertSql, activityData);
-    
+      [cash_request_id]
+    );
 
-            res.status(200).json(JsonResponseSuccess());
-        } catch (error) {
-            console.error("Error in update_cash_request_rejected:", error);
-            res.status(500).json(JsonResposeError(error));
-        }
+    const activityData = [
+      [
+        cash_request_id,
+        "REQUESTED",
+        "Cash request was updated after rejection",
+        GetCurrentDatetime(),
+        updated_by,
+      ],
+    ];
+
+    const activityInsertSql = InsertStatement(
+      CashRequests.cash_request_activity.tablename,
+      CashRequests.cash_request_activity.prefix,
+      CashRequests.cash_request_activity.insertColumns
+    );
+
+    await Insert(activityInsertSql, activityData);
+
+    res.status(200).json(JsonResponseSuccess());
+  } catch (error) {
+    console.error("Error in update_cash_request_rejected:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
 });
 
 router.put("/updatecash_request_notification", async (req, res) => {
-    try {
-        const { id, notification } = req.body;
-        console.log(req.body);
-        if (!id || notification === undefined) {
-            return res.status(400).json(JsonResposeError("Missing required fields"));
-        }
-
-        let updateData = [[notification, id]];
-        let update_sql = UpdateStatement(
-            CashRequests.cash_request.tablename,
-            [CashRequests.cash_request.selectOptionsColumn.notification],
-            [CashRequests.cash_request.selectOptionsColumn.id]
-        );
-        await Update(update_sql, updateData);
-
-        res.status(200).json(JsonResponseSuccess());
-    } catch (error) {
-        console.error("Error in updatecash_request_notification:", error);
-        res.status(500).json(JsonResposeError(error));
+  try {
+    const { id, notification } = req.body;
+    console.log(req.body);
+    if (!id || notification === undefined) {
+      return res.status(400).json(JsonResposeError("Missing required fields"));
     }
+
+    let updateData = [[notification, id]];
+    let update_sql = UpdateStatement(
+      CashRequests.cash_request.tablename,
+      [CashRequests.cash_request.selectOptionsColumn.notification],
+      [CashRequests.cash_request.selectOptionsColumn.id]
+    );
+    await Update(update_sql, updateData);
+
+    res.status(200).json(JsonResponseSuccess());
+  } catch (error) {
+    console.error("Error in updatecash_request_notification:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
 });
 
 // router.get('/getcash_request_by_id', async (req, res) => {

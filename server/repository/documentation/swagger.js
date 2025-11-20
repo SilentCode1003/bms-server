@@ -1845,6 +1845,133 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /liquidation/getstore_by_liquidation:
+ *   get:
+ *     summary: Get store by liquidation
+ *     description: Retrieves a list of stores associated with a specific liquidation item.
+ *     tags:
+ *       - Liquidation
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - in: query
+ *         name: store_name
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The store name
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved stores by liquidation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   l_cr_reference_id:
+ *                     type: integer
+ *                   li_store_name:
+ *                     type: string
+ *                   cr_employee:
+ *                     type: string
+ *                   l_created_date:
+ *                     type: string
+ *                     format: date-time
+ *       400:
+ *         description: Missing or invalid store name
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation/getroutes_by_liquidation:
+ *   get:
+ *     summary: Get routes by liquidation
+ *     description: Retrieves the routes associated with a specific liquidation item.
+ *     tags:
+ *       - Liquidation
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - in: query
+ *         name: reference_id
+ *         schema:
+ *           type: string
+ *         description: The reference ID of the liquidation item
+ *       - in: query
+ *         name: store_name
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The name of the store
+ *       - in: query
+ *         name: mode_of_transportation
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: The mode of transportation
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: The start date of the liquidation item
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: The end date of the liquidation item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved routes by liquidation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   li_id:
+ *                     type: integer
+ *                   li_liquidation_id:
+ *                     type: integer
+ *                   li_store_name:
+ *                     type: string
+ *                   li_from:
+ *                     type: string
+ *                   li_to:
+ *                     type: string
+ *                   li_mode_of_transportation:
+ *                     type: string
+ *                   li_amount:
+ *                     type: number
+ *                   li_created_date:
+ *                     type: string
+ *                     format: date-time
+ *                   li_created_by:
+ *                     type: string
+ *       400:
+ *         description: Missing or invalid reference ID or store name
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
  * /liquidation/create_liquidation:
  *   post:
  *     summary: Create a new cash liquidation
