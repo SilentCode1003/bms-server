@@ -78,42 +78,46 @@ router.get('/get_finance_cards', async (req, res) => {
       let whereSql_cr = whereClauses_cr.length
         ? `AND ${whereClauses_cr.join(" AND ")}`
         : "";
-     
-      let whereClauses_liq = [];
-      if (start) whereClauses_liq.push(`l_created_date >= '${start}'`);
-      if (end) whereClauses_liq.push(`l_created_date <= '${end}'`);
-      let whereSql_liq = whereClauses_liq.length
-        ? `AND ${whereClauses_liq.join(" AND ")}`
-        : "";
 
             let select_finance_cards_sql = SelectStatement(
                 `SELECT
-                                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'pending' ${whereSql_cr}) as pending_requests,
-                                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_count,
-                                (SELECT COUNT(*) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as verified_liquidations_count,
-                                (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_total,
-                                (SELECT SUM(l_amount_expended +  l_reimburse_return) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as verified_liquidations_total,
-                                (
-                                COALESCE(
-                                  (SELECT SUM(cr_amount)
-                                  FROM cash_request
-                                  WHERE cr_status = 'completed' ${whereSql_cr}),
-                                  0
-                                )
-                                -
-                                COALESCE(
-                                  (SELECT SUM(l_amount_expended + l_reimburse_return)
-                                  FROM liquidation
-                                  WHERE l_status = 'verified' ${whereSql_liq}),
-                                  0
-                                )
-                              ) AS outstanding_balance
-
-                                `
+                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'pending' ${whereSql_cr}) as pending_requests,
+                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_count,
+                (SELECT COUNT(DISTINCT l.l_id) 
+                 FROM liquidation l 
+                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id 
+                 WHERE l.l_status = 'verified' 
+                 AND cr.cr_status = 'completed' 
+                 ${whereSql_cr}) as verified_liquidations_count,
+                (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_total,
+                (SELECT SUM(l.l_amount_expended + l.l_reimburse_return) 
+                 FROM liquidation l 
+                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id 
+                 WHERE l.l_status = 'verified' 
+                 AND cr.cr_status = 'completed' 
+                 ${whereSql_cr}) as verified_liquidations_total,
+                (
+                COALESCE(
+                  (SELECT SUM(cr_amount)
+                  FROM cash_request
+                  WHERE cr_status = 'completed' ${whereSql_cr}),
+                  0
+                )
+                -
+                COALESCE(
+                  (SELECT SUM(l.l_amount_expended + l.l_reimburse_return)
+                  FROM liquidation l
+                  INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
+                  WHERE l.l_status = 'verified' 
+                  AND cr.cr_status = 'completed' 
+                  ${whereSql_cr}),
+                  0
+                )
+              ) AS outstanding_balance
+                `
             );
 
             let result = await Select(select_finance_cards_sql);
-
             emitDashboardUpdate(req, 'finance_cards_fetched', {
                 event: 'finance_cards_fetched',
                 status: 'success',
@@ -397,7 +401,6 @@ router.get('/get_requester_cards', async (req, res) => {
 
                 let result = await Select(select_requester_cards_sql);
 
-                // Emit socket event for the fetch
                 emitDashboardUpdate(req, 'requester_cards_fetched', {
                     event: 'requester_cards_fetched',
                     status: 'success',
@@ -435,7 +438,6 @@ router.get('/get_requester_cards', async (req, res) => {
                 );
                 let result = await Select(select_requester_cards_sql);
 
-                // Emit socket event for the fetch
                 emitDashboardUpdate(req, 'requester_cards_fetched', {
                     event: 'requester_cards_fetched',
                     status: 'success',
@@ -655,4 +657,3 @@ let select_location_expenses_sql = SelectStatement(`
     res.status(500).json(JsonResposeError(error));
   }
 });
-  
