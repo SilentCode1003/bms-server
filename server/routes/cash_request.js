@@ -100,17 +100,16 @@ router.get("/getcash_request", async (req, res) => {
               FROM cash_request cr
               ${whereClause}
               GROUP BY cr.cr_id
-              ${
-                status && status.toLowerCase() === "rejected"
-                  ? `HAVING 
+              ${status && status.toLowerCase() === "rejected"
+          ? `HAVING 
                         EXISTS (
                           SELECT 1 
                           FROM cash_request_activity cra1
                           WHERE cra1.cra_cash_request_id = cr.cr_id
                           AND cra1.cra_action = 'REQUESTED'
                         )`
-                  : ""
-              }
+          : ""
+        }
               ORDER BY cr.cr_id DESC`
       );
 
@@ -184,22 +183,20 @@ router.get("/getapproved_cash_request", async (req, res) => {
                                     ) AS cash_request_activities
                               
                                 FROM cash_request cr
-                                ${
-                                  status
-                                    ? `WHERE cr.cr_status = '${status}'`
-                                    : ""
-                                }
+                                ${status
+          ? `WHERE cr.cr_status = '${status}'`
+          : ""
+        }
                                 GROUP BY cr.cr_id
-                                ${
-                                  status && status.toLowerCase() === "rejected"
-                                    ? `HAVING 
+                                ${status && status.toLowerCase() === "rejected"
+          ? `HAVING 
                                           (SELECT COUNT(DISTINCT cra_act.cra_action) 
                                            FROM cash_request_activity cra_act 
                                            WHERE cra_act.cra_cash_request_id = cr.cr_id 
                                            AND cra_act.cra_action IN ('REQUESTED','APPROVED','REJECTED')
                                           ) = 3`
-                                    : ""
-                                }
+          : ""
+        }
                                 ORDER BY cr.cr_id DESC`
       );
 
@@ -455,12 +452,18 @@ router.post("/createcash_request", async (req, res) => {
         });
       }
 
-      res.status(200).json(JsonResponseSuccess());
+      res.status(200).json(
+        JsonResponseSuccess({
+          cash_request_id,
+          reference_id,
+        })
+      );
+
     } catch (err) {
       if (connection) {
         try {
           await rollbackTransaction(connection);
-        } catch (_) {}
+        } catch (_) { }
       }
       throw err;
     } finally {
@@ -468,6 +471,76 @@ router.post("/createcash_request", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json(JsonResposeError(error));
+  }
+});
+
+router.post("/undo_createcash_request", async (req, res) => {
+  let connection;
+  try {
+    const { cash_request_id } = req.body;
+
+    if (!cash_request_id) {
+      return res
+        .status(400)
+        .json(JsonResposeError("Missing cash_request_id"));
+    }
+
+    connection = await beginTransaction();
+
+    const checkSql = SelectStatement(
+      `SELECT cr_id, cr_reference_id FROM cash_request WHERE cr_id = ? LIMIT 1`,
+      [cash_request_id]
+    );
+
+    const existing = await Select(checkSql);
+    if (existing.length === 0) {
+      await rollbackTransaction(connection);
+      return res.status(404).json(JsonResposeError("Cash request not found"));
+    }
+
+    const crId = existing[0].cr_id;
+    const reference_id = existing[0].cr_reference_id;
+
+    await connection.query(
+      `DELETE FROM cash_request_activity
+       WHERE cra_cash_request_id = ? AND cra_action = ?`,
+      [crId, "RECEIVED"]
+    );
+
+    const status = "approved";
+    const notification = 1;
+    const data = [status, notification, crId];
+
+    const update_sql = UpdateStatement(
+      CashRequests.cash_request.tablename,
+      [
+        CashRequests.cash_request.selectOptionsColumn.status,
+        CashRequests.cash_request.selectOptionsColumn.notification,
+      ],
+      [CashRequests.cash_request.selectOptionsColumn.id]
+    );
+
+    await Update(update_sql, data);
+
+    await commitTransaction(connection);
+
+    emitCashRequestUpdate(req, "rollback", {
+      event: "cash_request_rollback",
+      status: "success",
+      id: crId,
+      reference_id,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.status(200).json(JsonResponseSuccess("Undo successful (marked as approved)"));
+  } catch (error) {
+    if (connection) {
+      try {
+        await rollbackTransaction(connection);
+      } catch (_) {}
+    }
+    console.log(error);
+    return res.status(500).json(JsonResposeError(error));
   }
 });
 
@@ -492,6 +565,7 @@ router.put("/updatecash_request", async (req, res) => {
       select_employee_id_result.cr_amount;
 
     async function ProcessData() {
+      
       if (status === "approved") {
         let data = [status, 1, id];
         let update_sql = UpdateStatement(
@@ -511,6 +585,7 @@ router.put("/updatecash_request", async (req, res) => {
           CashRequests.cash_request_activity.insertColumns
         );
         await Insert(activity_insert_sql, activityData);
+
       } else if (status === "completed") {
         let data = [status, 1, cash_voucher, id];
         let update_sql = UpdateStatement(

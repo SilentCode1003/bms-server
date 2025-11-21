@@ -19,6 +19,9 @@ const {
   Insert,
   Update,
   Delete,
+  beginTransaction,
+  commitTransaction,
+  rollbackTransaction,
 } = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
 const {
@@ -27,7 +30,7 @@ const {
 } = require("../repository/helper/crytography");
 const jwt = require("jsonwebtoken");
 var router = express.Router();
-
+const { DataModeling } = require("../repository/model/datamodeling");
 // Function to emit liquidation updates
 const emitLiquidationUpdate = (req, event, data) => {
   const io = req.app.get("io");
@@ -105,17 +108,16 @@ router.get("/getcash_liquidation", async (req, res) => {
                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
                 ${whereClause}
                 GROUP BY l.l_id
-                ${
-                  status && status.toLowerCase() === "rejected"
-                    ? `HAVING 
+                ${status && status.toLowerCase() === "rejected"
+          ? `HAVING 
                             EXISTS (
                                 SELECT 1 
                                 FROM liquidation_activity lia1
                                 WHERE lia1.lia_liquidation_id = l.l_id
                                 AND lia1.lia_action = 'PREPARED'
                             )`
-                    : ""
-                }
+          : ""
+        }
                 ORDER BY l.l_id DESC`
       );
 
@@ -287,24 +289,32 @@ router.get("/getapproved_liquidation", async (req, res) => {
 router.get("/getstore_by_liquidation", async (req, res) => {
   try {
     const { store_name } = req.query;
+
+    if (!store_name) {
+      return res.status(400).json(JsonResposeError("Missing store_name"));
+    }
     async function ProcessData() {
-      let select_liquidation_sql = SelectStatement(
-        `select
-        l_cr_reference_id,
-        li_store_name,
-        cr_employee,
-        l_created_date from 
-        liquidation 
-        inner join liquidation_item on l_id = li_liquidation_id
-        inner join cash_request on cr_reference_id = l_cr_reference_id
-        where li_to = ?
-        and li_store_name = ?;
-        `,
+      const selectLiquidationSql = SelectStatement(
+        `SELECT
+        l.l_id as id,
+          l.l_cr_reference_id as reference_id,
+          li.li_store_name as store_name,
+          cr.cr_employee employee,
+          l.l_created_date as date,
+          SUM(li.li_amount) AS total_amount
+        FROM liquidation l
+        INNER JOIN liquidation_item li ON l.l_id = li.li_liquidation_id
+        INNER JOIN cash_request cr ON cr.cr_reference_id = l.l_cr_reference_id
+        WHERE li.li_store_name = ?
+        GROUP BY l.l_cr_reference_id, li.li_store_name, cr.cr_employee, l.l_created_date;`,
         [store_name, store_name]
       );
-      let result = await Select(select_liquidation_sql);
+
+      const result = await Select(selectLiquidationSql);
+
       return res.status(200).json(result);
     }
+
     await ProcessData();
   } catch (error) {
     console.error("Error during getstore_by_liquidation:", error);
@@ -340,9 +350,11 @@ router.get("/getroutes_by_liquidation", async (req, res) => {
 
       let select_liquidation_sql = SelectStatement(
         `SELECT
+        cr_employee as employee,
             liquidation_item.*
             FROM 
             liquidation 
+            INNER JOIN cash_request ON l_cr_reference_id = cr_reference_id
             INNER JOIN liquidation_item ON l_id = li_liquidation_id
             WHERE li_store_name = ?
             ${condition}
@@ -350,7 +362,7 @@ router.get("/getroutes_by_liquidation", async (req, res) => {
         [store_name, ...params]
       );
       let result = await Select(select_liquidation_sql);
-      return res.status(200).json(result);
+      return res.status(200).json(DataModeling(result, "li_"));
     }
     await ProcessData();
   } catch (error) {
@@ -548,7 +560,6 @@ router.post("/create_liquidation", async (req, res) => {
 
       const insertedItems = [];
 
-      // prepare bulk insert for liquidation items
       const cols = [
         "li_liquidation_id",
         "li_date",
@@ -599,12 +610,9 @@ router.post("/create_liquidation", async (req, res) => {
       }
 
       if (flatValues.length > 0) {
-        const bulkSql = `INSERT INTO ${
-          Liquidations.liquidation_item.tablename
-        } (${cols.join(",")}) VALUES ${placeholders.join(",")}`;
+        const bulkSql = `INSERT INTO ${Liquidations.liquidation_item.tablename
+          } (${cols.join(",")}) VALUES ${placeholders.join(",")}`;
         const [bulkRes] = await connection.query(bulkSql, flatValues);
-        // Note: bulkRes.insertId is the first inserted id; rows inserted = request_items.length
-        // We don't strictly need the individual inserted ids here, we tracked items in insertedItems
         console.log(
           "Bulk inserted liquidation items, insertId:",
           bulkRes.insertId,
@@ -749,9 +757,81 @@ router.post("/create_liquidation", async (req, res) => {
         )
       );
   } finally {
-    // connection is released by commitTransaction / rollbackTransaction already
   }
 });
+
+router.post("/undo_liquidation", async (req, res) => {
+  let connection;
+  try {
+    const { liquidation_id } = req.body;
+
+    if (!liquidation_id) {
+      return res
+        .status(400)
+        .json(JsonResposeError("Missing liquidation_id"));
+    }
+
+    connection = await beginTransaction();
+
+    const checkSql = SelectStatement(
+      `SELECT l_id FROM liquidation WHERE l_id = ? LIMIT 1`,
+      [liquidation_id]
+    );
+
+    const existing = await Select(checkSql);
+    if (existing.length === 0) {
+      await rollbackTransaction(connection);
+      return res.status(404).json(JsonResposeError("Liquidation not found"));
+    }
+
+    const id = existing[0].l_id;
+    const reference_id = existing[0].l_reference_id;
+
+    await connection.query(
+      `DELETE FROM liquidation_activity
+       WHERE lia_liquidation_id = ? AND lia_action = ?`,
+      [id, "CHECKED"]
+    );
+
+    const status = "approved";
+    const notification = 1;
+    const updateData = [status, notification, id];
+
+    const update_sql = UpdateStatement(
+      Liquidations.liquidation.tablename,
+      [
+        Liquidations.liquidation.selectOptionsColumn.status,
+        Liquidations.liquidation.selectOptionsColumn.notification,
+      ],
+      [Liquidations.liquidation.selectOptionsColumn.id]
+    );
+
+    await Update(update_sql, updateData);
+
+    await commitTransaction(connection);
+
+    emitLiquidationUpdate(req, "rollback_liquidation", {
+      event: "liquidation_rollback",
+      status: "success",
+      id,
+      reference_id,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res
+      .status(200)
+      .json(JsonResponseSuccess("Undo liquidation successful"));
+  } catch (error) {
+    if (connection) {
+      try {
+        await rollbackTransaction(connection);
+      } catch (_) { }
+    }
+    console.log(error);
+    return res.status(500).json(JsonResposeError(error));
+  }
+});
+
 
 router.put("/update_liquidation", async (req, res) => {
   try {
@@ -823,16 +903,16 @@ router.put("/update_liquidation", async (req, res) => {
         await Insert(activity_insert_sql, activityData);
         let select_liquidation = SelectStatement(
           `SELECT
-                    l_cr_reference_id as reference_id,
-                    l_amount_obtained as amount_issued,
-                    l_amount_expended as amount_expended,
-                    IF(l_amount_expended > l_amount_obtained, l_amount_expended - l_amount_obtained, 0) as amount_reimburse,
-                    IF(l_amount_expended < l_amount_obtained, l_amount_obtained - l_amount_expended, 0) as amount_return,
-                    cr_cv_number as cash_voucher
-                    FROM liquidation
-                    INNER JOIN cash_request ON l_cr_reference_id = cr_reference_id
-                    WHERE l_id = ?
-                    `,
+            l_cr_reference_id as reference_id,
+            l_amount_obtained as amount_issued,
+            l_amount_expended as amount_expended,
+            IF(l_amount_expended > l_amount_obtained, l_amount_expended - l_amount_obtained, 0) as amount_reimburse,
+            IF(l_amount_expended < l_amount_obtained, l_amount_obtained - l_amount_expended, 0) as amount_return,
+            cr_cv_number as cash_voucher
+            FROM liquidation
+            INNER JOIN cash_request ON l_cr_reference_id = cr_reference_id
+            WHERE l_id = ?
+          `,
           [id]
         );
         let liquidation = await Select(select_liquidation);
@@ -1074,9 +1154,9 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       }
       let storedReceipts = Array.isArray(receipts)
         ? receipts.map((r, i) => ({
-            id: r.id || (i + 1).toString(),
-            image: r.image || "",
-          }))
+          id: r.id || (i + 1).toString(),
+          image: r.image || "",
+        }))
         : [];
 
       const [liquidation] = await connection.query(

@@ -1348,6 +1348,66 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /cash_request/undo_createcash_request:
+ *   post:
+ *     summary: Undo a previously created cash request
+ *     description: Deletes a cash request and its activity logs. Either cash_request_id must be provided.
+ *     tags:
+ *       - Cash Request
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cash_request_id
+ *             properties:
+ *               cash_request_id:
+ *                 type: integer
+ *                 description: The ID of the cash request to undo.
+ *     responses:
+ *       200:
+ *         description: Successfully undone the cash request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Undo successful"
+ *       400:
+ *         description: Missing required identifying fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Missing cash_request_id"
+ *       404:
+ *         description: Cash request not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Cash request not found"
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+
+/**
+ * @swagger
  * /cash_request/updatecash_request:
  *   put:
  *     summary: Update an existing cash request
@@ -2088,6 +2148,70 @@ module.exports = swaggerDocs;
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+
+/**
+ * @swagger
+ * /liquidation/undo_liquidation:
+ *   post:
+ *     summary: Undo a liquidation action
+ *     description: >
+ *       Reverts a liquidation by:
+ *       - Removing the **CHECKED** liquidation activity  
+ *       - Resetting liquidation status back to **approved**  
+ *       - Creating a new liquidation activity entry with action **REVERTED**
+ *     tags:
+ *       - Liquidation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - liquidation_id
+ *             properties:
+ *               liquidation_id:
+ *                 type: int
+ *                 description: ID of the liquidation record to undo.
+ *     responses:
+ *       200:
+ *         description: Undo liquidation completed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: int
+ *                   example: "Undo liquidation successful"
+ *       400:
+ *         description: Missing or invalid liquidation_id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: int
+ *                   example: "Missing liquidation_id"
+ *       404:
+ *         description: Liquidation record not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: int
+ *                   example: "Liquidation not found"
+ *       500:
+ *         description: Internal Server Error during the undo process.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
 
 /**
  * @swagger
