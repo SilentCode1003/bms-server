@@ -26,6 +26,8 @@ module.exports = router;
 
 router.get('/getcash_request_activity', async (req, res) => {
         try {
+                const {offset, limit} = req.body;
+                // if(offset)
                 async function ProcessData() {
                         let select_cash_request_activity_sql = SelectStatement(
                                 `SELECT

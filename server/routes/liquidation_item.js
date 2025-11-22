@@ -178,7 +178,7 @@ router.get('/getliquidation_item_mode_of_transportation', async (req, res) => {
                 console.log("getliquidation_item_mode_of_transportation");
                 async function ProcessData() {
                         let select_liquidation_item_stats_sql = SelectStatement(
-                                `SELECT 
+                        `SELECT 
                         li_mode_of_transportation AS mode_of_transportation
                         FROM liquidation_item
                         LEFT JOIN liquidation l ON li_liquidation_id = l.l_id

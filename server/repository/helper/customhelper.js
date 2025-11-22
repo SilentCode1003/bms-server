@@ -564,7 +564,19 @@ exports.UpdateStatement = (tablename, columns, arguments) => {
 
   return statement;
 };
+exports.DeleteStatement = (tablename, arguments) => {
+  let agrs = "";
 
+  arguments.forEach((arg) => {
+    agrs += `${arg} = ? AND `;
+  });
+
+  agrs = agrs.slice(0, -5);
+
+  let statement = `DELETE FROM ${tablename} WHERE ${agrs}`;
+
+  return statement;
+};
 exports.UpdateStatementWithArrayDates = (
   tablename,
   prefix,
