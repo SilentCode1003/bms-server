@@ -444,7 +444,7 @@ router.post("/create_liquidation", async (req, res) => {
       ];
 
       let missingToStores = [];
-
+console.log(uniqueStores)
       uniqueStores.forEach((store) => {
         if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
           missingToStores.push(store);
@@ -1072,7 +1072,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       ];
 
       let hasReachedAllDestinations = false;
-
+console.log(uniqueStores)
       if (uniqueStores.length === 1) {
         const store = uniqueStores[0];
         hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
