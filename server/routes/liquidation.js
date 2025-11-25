@@ -443,23 +443,21 @@ router.post("/create_liquidation", async (req, res) => {
         ...new Set(cleanedItems.map((i) => i.store_name).filter(Boolean)),
       ];
 
-      let hasReachedAllDestinations = false;
+      let missingToStores = [];
 
-      if (uniqueStores.length === 1) {
-        const store = uniqueStores[0];
-        hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
-      } else {
-        hasReachedAllDestinations = uniqueStores.every((store) =>
-          cleanedItems.some((i) => i.to === store)
-        );
-      }
+      uniqueStores.forEach((store) => {
+        if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
+          missingToStores.push(store);
+        }
+      });
 
-      if (!hasReachedAllDestinations) {
+      if (missingToStores.length > 0) {
         return res
           .status(400)
           .json(
             JsonResposeError(
-              "Please mention the store destination you reached in the 'TO' column input field so we know you reached the store."
+              `Please mention the store destination you reached in the 'TO' column input field so we know you reached the store. The following stores have no TO store name: ${missingToStores.join(", ")}`,
+              { missingStores: missingToStores }
             )
           );
       }
@@ -541,7 +539,6 @@ router.post("/create_liquidation", async (req, res) => {
 
       const insertedItems = [];
 
-      // Prepare bulk insert data for liquidation items
       const itemsData = [];
 
       for (const item of request_items) {
@@ -592,6 +589,7 @@ router.post("/create_liquidation", async (req, res) => {
           itemsData.length
         );
       }
+      
       // const select_red_flags_sql = SelectStatement(`
       //     WITH counted AS (
       //         SELECT
@@ -723,8 +721,7 @@ router.post("/create_liquidation", async (req, res) => {
   }
 });
 
-router.post("/undo_liquidation", async (req, res) => {
-  let connection;
+router.put("/undo_liquidation", async (req, res) => {
   try {
     const { liquidation_id } = req.body;
 
@@ -734,8 +731,6 @@ router.post("/undo_liquidation", async (req, res) => {
         .json(JsonResposeError("Missing liquidation_id"));
     }
 
-    connection = await beginTransaction();
-
     const checkSql = SelectStatement(
       `SELECT l_id FROM liquidation WHERE l_id = ? LIMIT 1`,
       [liquidation_id]
@@ -743,14 +738,13 @@ router.post("/undo_liquidation", async (req, res) => {
 
     const existing = await Select(checkSql);
     if (existing.length === 0) {
-      await rollbackTransaction(connection);
       return res.status(404).json(JsonResposeError("Liquidation not found"));
     }
 
     const id = existing[0].l_id;
     const reference_id = existing[0].l_reference_id;
 
-    await connection.query(
+    await Delete(
       `DELETE FROM liquidation_activity
        WHERE lia_liquidation_id = ? AND lia_action = ?`,
       [id, "CHECKED"]
@@ -771,8 +765,6 @@ router.post("/undo_liquidation", async (req, res) => {
 
     await Update(update_sql, updateData);
 
-    await commitTransaction(connection);
-
     emitLiquidationUpdate(req, "rollback_liquidation", {
       event: "liquidation_rollback",
       status: "success",
@@ -785,11 +777,6 @@ router.post("/undo_liquidation", async (req, res) => {
       .status(200)
       .json(JsonResponseSuccess("Undo liquidation successful"));
   } catch (error) {
-    if (connection) {
-      try {
-        await rollbackTransaction(connection);
-      } catch (_) { }
-    }
     console.log(error);
     return res.status(500).json(JsonResposeError(error));
   }

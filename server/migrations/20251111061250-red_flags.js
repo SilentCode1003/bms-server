@@ -29,10 +29,6 @@ module.exports = {
           key: 'li_id',
         },
       },
-      rf_store_name: {
-        type: Sequelize.STRING(300),
-        allowNull: false,
-      },
       rf_from: {
         type: Sequelize.TEXT,
         allowNull: false,

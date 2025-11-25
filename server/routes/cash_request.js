@@ -415,7 +415,7 @@ console.log(req.body)
   }
 });
 
-router.post("/undo_createcash_request", async (req, res) => {
+router.put("/undo_cash_request", async (req, res) => {
   try {
     const { cash_request_id } = req.body;
 

@@ -1348,8 +1348,8 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
- * /cash_request/undo_createcash_request:
- *   post:
+ * /cash_request/undo_cash_request:
+ *   put:
  *     summary: Undo a previously created cash request
  *     description: Deletes a cash request and its activity logs. Either cash_request_id must be provided.
  *     tags:
@@ -2152,7 +2152,7 @@ module.exports = swaggerDocs;
 /**
  * @swagger
  * /liquidation/undo_liquidation:
- *   post:
+ *   put:
  *     summary: Undo a liquidation action
  *     description: >
  *       Reverts a liquidation by:

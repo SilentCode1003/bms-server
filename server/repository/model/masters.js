@@ -99,7 +99,6 @@ const Masters = {
         tablename: "master_min_max",
         prefix: "mmm_",
         insertColumns: [
-            "store_name",
             "from",
             "to",
             "mode_of_transportation",
@@ -108,7 +107,6 @@ const Masters = {
         ],
         selectColumns: [
             "mmm_id",
-            "mmm_store_name",
             "mmm_from",
             "mmm_to",
             "mmm_mode_of_transportation",
@@ -117,7 +115,6 @@ const Masters = {
         ],
         selectOptionsColumn: {
             id: "mmm_id",
-            store_name: "mmm_store_name",
             from: "mmm_from",
             to: "mmm_to",
             mode_of_transportation: "mmm_mode_of_transportation",
@@ -169,7 +166,6 @@ const Masters = {
             status: "rf_status",
         },
     },
-
 };
 
 module.exports = { Masters };

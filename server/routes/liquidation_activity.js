@@ -26,26 +26,35 @@ module.exports = router;
 
 router.get('/getliquidation_activity', async (req, res) => {
         try {
+                const { offset, limit } = req.query;
+                let limitValue =
+                        limit && limit !== "0" && limit !== "-1" && limit !== ""
+                                ? parseInt(limit)
+                                : 999999;
+                let offsetValue =
+                        offset && offset !== "0" && offset !== "-1" && offset !== ""
+                                ? parseInt(offset)
+                                : 0;
                 async function ProcessData() {
                         let select_liquidation_activity_sql = SelectStatement(
                                 `SELECT
-    lia_id AS id,
-    lia_liquidation_id AS liquidation_id,
-    lia_action AS action,
-    lia_remarks AS remarks,
-    lia_receipts AS receipts,
-    lia_created_at AS created_at,
-    CASE
-        WHEN lia_action = 'PREPARED' THEN CONCAT('Prepared by: ', lia_created_by)
-        WHEN lia_action = 'NOTED' THEN CONCAT('Noted by: ', lia_created_by)
-        WHEN lia_action = 'CHECKED' THEN CONCAT('Checked by: ', lia_created_by)
-        WHEN lia_action = 'APPROVED' THEN CONCAT('Approved by: ', lia_created_by)
-        WHEN lia_action = 'INCOMPLETE' THEN CONCAT('Marked incomplete by: ', lia_created_by)
-        WHEN lia_action = 'REJECTED' THEN CONCAT('Rejected by: ', lia_created_by)
-        ELSE lia_created_by
-    END AS name
-FROM liquidation_activity;
-
+                                lia_id AS id,
+                                lia_liquidation_id AS liquidation_id,
+                                lia_action AS action,
+                                lia_remarks AS remarks,
+                                lia_receipts AS receipts,
+                                lia_created_at AS created_at,
+                                CASE
+                                        WHEN lia_action = 'PREPARED' THEN CONCAT('Prepared by: ', lia_created_by)
+                                        WHEN lia_action = 'NOTED' THEN CONCAT('Noted by: ', lia_created_by)
+                                        WHEN lia_action = 'CHECKED' THEN CONCAT('Checked by: ', lia_created_by)
+                                        WHEN lia_action = 'APPROVED' THEN CONCAT('Approved by: ', lia_created_by)
+                                        WHEN lia_action = 'INCOMPLETE' THEN CONCAT('Marked incomplete by: ', lia_created_by)
+                                        WHEN lia_action = 'REJECTED' THEN CONCAT('Rejected by: ', lia_created_by)
+                                        ELSE lia_created_by
+                                END AS name
+                                FROM liquidation_activity
+                                LIMIT ${limitValue} OFFSET ${offsetValue};
                                 `
                         );
 

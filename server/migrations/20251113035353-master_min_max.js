@@ -15,10 +15,6 @@ module.exports = {
         autoIncrement: true,
         primaryKey: true,
       },
-      mmm_store_name: {
-        type: Sequelize.STRING(300),
-        allowNull: false,
-      },
       mmm_from: {
         type: Sequelize.STRING(300),
         allowNull: false,

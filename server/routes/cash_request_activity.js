@@ -26,8 +26,15 @@ module.exports = router;
 
 router.get('/getcash_request_activity', async (req, res) => {
         try {
-                const {offset, limit} = req.body;
-                // if(offset)
+                                const { offset, limit } = req.query;
+                let limitValue =
+                        limit && limit !== "0" && limit !== "-1" && limit !== ""
+                                ? parseInt(limit)
+                                : 999999;
+                let offsetValue =
+                        offset && offset !== "0" && offset !== "-1" && offset !== ""
+                                ? parseInt(offset)
+                                : 0;
                 async function ProcessData() {
                         let select_cash_request_activity_sql = SelectStatement(
                                 `SELECT
@@ -43,7 +50,8 @@ router.get('/getcash_request_activity', async (req, res) => {
                                      WHEN cra_action = 'REJECTED' THEN CONCAT('Rejected by: ', cra_requested_by)
                                 ELSE cra_requested_by
                                 END AS name
-                                FROM cash_request_activity;
+                                FROM cash_request_activity
+                                LIMIT ${limitValue} OFFSET ${offsetValue};
                                 `
                         );
 
