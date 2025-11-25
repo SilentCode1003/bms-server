@@ -444,7 +444,7 @@ router.post("/create_liquidation", async (req, res) => {
       ];
 
       let missingToStores = [];
-console.log(uniqueStores)
+      console.log(uniqueStores)
       uniqueStores.forEach((store) => {
         if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
           missingToStores.push(store);
@@ -589,7 +589,7 @@ console.log(uniqueStores)
           itemsData.length
         );
       }
-      
+
       // const select_red_flags_sql = SelectStatement(`
       //     WITH counted AS (
       //         SELECT
@@ -1038,7 +1038,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
   try {
     const { liquidation_id, items, remarks, receipts, status, updated_by } =
       req.body;
-
+    console.log(req.body);
     if (!liquidation_id) {
       return res.status(400).json(JsonResposeError("Missing liquidation_id"));
     }
@@ -1070,9 +1070,13 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       const uniqueStores = [
         ...new Set(cleanedItems.map((i) => i.store_name).filter(Boolean)),
       ];
+      const uniqueTo = [
+        ...new Set(cleanedItems.map((i) => i.to).filter(Boolean)),
+      ];
 
       let hasReachedAllDestinations = false;
-console.log(uniqueStores)
+      console.log("STORE NAME",uniqueStores)
+      console.log("TO",uniqueTo)
       if (uniqueStores.length === 1) {
         const store = uniqueStores[0];
         hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
