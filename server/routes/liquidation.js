@@ -1068,34 +1068,27 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       }));
 
       const uniqueStores = [
-        ...new Set(cleanedItems.map((i) => i.store_name).filter(Boolean)),
-      ];
-      const uniqueTo = [
-        ...new Set(cleanedItems.map((i) => i.to).filter(Boolean)),
+        ...new Set(cleanedItems.map(i => i.store_name).filter(Boolean)),
       ];
 
-      let hasReachedAllDestinations = false;
-      console.log("STORE NAME",uniqueStores)
-      console.log("TO",uniqueTo)
-      if (uniqueStores.length === 1) {
-        const store = uniqueStores[0];
-        hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
-      } else {
-        hasReachedAllDestinations = uniqueStores.every((store) =>
-          cleanedItems.some((i) => i.to === store)
+      const allStoresHaveSelfTo = uniqueStores.every(store =>
+        cleanedItems.some(row =>
+          row.store_name === store && row.to === store
+        )
+      );
+
+      console.log("uniqueStores:", uniqueStores);
+      console.log("allStoresHaveSelfTo:", allStoresHaveSelfTo);
+
+      if (!allStoresHaveSelfTo) {
+        return res.status(400).json(
+          JsonResposeError(
+            "Please enter the store destination in the 'TO' column for each store. Each store requires at least one row where TO matches the Store Name."
+          )
         );
       }
-
-      if (!hasReachedAllDestinations) {
-        return res
-          .status(400)
-          .json(
-            JsonResposeError(
-              "Please mention the store destination you reached in the 'TO' column input field so we know you reached the store."
-            )
-          );
-      }
     }
+
 
     let storedReceipts = Array.isArray(receipts)
       ? receipts.map((r, i) => ({
