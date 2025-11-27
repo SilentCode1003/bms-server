@@ -9,92 +9,7 @@ const swaggerOptions = {
       description: "API documentation for Budget Monitoring System",
       contact: {
         name: "API Support",
-        email: "support@example.com",
-      },
-    },
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-          in: "header",
-          name: "Authorization"
-        },
-      },
-      responses: {
-        UnauthorizedError: {
-          description: 'Access token is missing or invalid',
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/Error'
-              }
-            }
-          }
-        }
-      },
-      schemas: {
-        Error: {
-          type: 'object',
-          properties: {
-            success: {
-              type: 'boolean',
-              example: false
-            },
-            message: {
-              type: 'string',
-              example: 'An error occurred'
-            },
-            error: {
-              type: 'object',
-              properties: {
-                status: {
-                  type: 'integer',
-                  example: 500
-                },
-                message: {
-                  type: 'string',
-                  example: 'Internal Server Error'
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    security: [
-      {
-        bearerAuth: []
-      }
-    ],
-    // Allow CORS for token usage across different origins
-    responses: {
-      UnauthorizedError: {
-        description: 'Unauthorized - Invalid or missing token',
-        headers: {
-          'Access-Control-Allow-Origin': { 
-            schema: { 
-              type: 'string',
-              default: '*' 
-            } 
-          },
-          'Access-Control-Allow-Credentials': { 
-            schema: { 
-              type: 'boolean',
-              default: true 
-            } 
-          }
-        }
-      }
-    },
-    securitySchemes: {
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        in: 'header',
-        name: 'Authorization'
+        email: "support@example.com"
       }
     },
     servers: [
@@ -111,13 +26,92 @@ const swaggerOptions = {
         description: "Development Server"
       },
       {
+        url: "http://172.16.1.32:5003",
+        description: "UAT Server"
+      },
+      {
         url: "http://192.168.40.100:5013",
         description: "Auth Server"
       }
     ],
+
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT"
+        }
+      },
+
+      responses: {
+        UnauthorizedError: {
+          description: "Unauthorized - Invalid or missing token",
+          headers: {
+            "Access-Control-Allow-Origin": {
+              schema: {
+                type: "string",
+                default: "*"
+              }
+            },
+            "Access-Control-Allow-Credentials": {
+              schema: {
+                type: "boolean",
+                default: true
+              }
+            }
+          },
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      },
+
+      schemas: {
+        Error: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: false
+            },
+            message: {
+              type: "string",
+              example: "An error occurred"
+            },
+            error: {
+              type: "object",
+              properties: {
+                status: {
+                  type: "integer",
+                  example: 500
+                },
+                message: {
+                  type: "string",
+                  example: "Internal Server Error"
+                }
+              }
+            }
+          },
+          required: ["success", "message"]
+        }
+      }
+    },
+
+    security: [
+      {
+        bearerAuth: []
+      }
+    ]
   },
-  apis: ["./repository/documentation/*.js"],
+
+  apis: ["./repository/documentation/*.js"]
 };
+
 
 const swaggerDocs = swaggerJSDoc(swaggerOptions);
 module.exports = swaggerDocs;
@@ -1240,6 +1234,11 @@ module.exports = swaggerDocs;
  *           type: integer
  *         required: true
  *         description: The ID of the cash request to check for liquidation association.
+ *       - in: query
+ *         name: notification
+ *         schema:
+ *           type: integer
+ *         description: The notification value (e.g., 0, 1, etc.)
  *     responses:
  *       200:
  *         description: Successfully retrieved cash request without liquidation
@@ -1346,6 +1345,66 @@ module.exports = swaggerDocs;
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+
+/**
+ * @swagger
+ * /cash_request/undo_cash_request:
+ *   put:
+ *     summary: Undo a previously created cash request
+ *     description: Deletes a cash request and its activity logs. Either cash_request_id must be provided.
+ *     tags:
+ *       - Cash Request
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cash_request_id
+ *             properties:
+ *               cash_request_id:
+ *                 type: integer
+ *                 description: The ID of the cash request to undo.
+ *     responses:
+ *       200:
+ *         description: Successfully undone the cash request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Undo successful"
+ *       400:
+ *         description: Missing required identifying fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Missing cash_request_id"
+ *       404:
+ *         description: Cash request not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Cash request not found"
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
 
 /**
  * @swagger
@@ -1461,6 +1520,54 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  *       404:
  *         description: Cash request not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /cash_request/updatecash_request_notification:
+ *   put:
+ *     summary: Update cash request notification status
+ *     description: Update the notification status of a cash request
+ *     tags:
+ *       - Cash Request
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - notification
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 description: ID of the cash request
+ *               notification:
+ *                 type: integer
+ *                 description: Updated notification status
+ *                 example: 0
+ *     responses:
+ *       200:
+ *         description: Successfully updated cash request notification status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Missing required fields or invalid JSON
  *         content:
  *           application/json:
  *             schema:
@@ -1798,6 +1905,133 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /liquidation/getstore_by_liquidation:
+ *   get:
+ *     summary: Get store by liquidation
+ *     description: Retrieves a list of stores associated with a specific liquidation item.
+ *     tags:
+ *       - Liquidation
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - in: query
+ *         name: store_name
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The store name
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved stores by liquidation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   l_cr_reference_id:
+ *                     type: integer
+ *                   li_store_name:
+ *                     type: string
+ *                   cr_employee:
+ *                     type: string
+ *                   l_created_date:
+ *                     type: string
+ *                     format: date-time
+ *       400:
+ *         description: Missing or invalid store name
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation/getroutes_by_liquidation:
+ *   get:
+ *     summary: Get routes by liquidation
+ *     description: Retrieves the routes associated with a specific liquidation item.
+ *     tags:
+ *       - Liquidation
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - in: query
+ *         name: reference_id
+ *         schema:
+ *           type: string
+ *         description: The reference ID of the liquidation item
+ *       - in: query
+ *         name: store_name
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The name of the store
+ *       - in: query
+ *         name: mode_of_transportation
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: The mode of transportation
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: The start date of the liquidation item
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: The end date of the liquidation item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved routes by liquidation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   li_id:
+ *                     type: integer
+ *                   li_liquidation_id:
+ *                     type: integer
+ *                   li_store_name:
+ *                     type: string
+ *                   li_from:
+ *                     type: string
+ *                   li_to:
+ *                     type: string
+ *                   li_mode_of_transportation:
+ *                     type: string
+ *                   li_amount:
+ *                     type: number
+ *                   li_created_date:
+ *                     type: string
+ *                     format: date-time
+ *                   li_created_by:
+ *                     type: string
+ *       400:
+ *         description: Missing or invalid reference ID or store name
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
  * /liquidation/create_liquidation:
  *   post:
  *     summary: Create a new cash liquidation
@@ -1917,6 +2151,70 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /liquidation/undo_liquidation:
+ *   put:
+ *     summary: Undo a liquidation action
+ *     description: >
+ *       Reverts a liquidation by:
+ *       - Removing the **CHECKED** liquidation activity  
+ *       - Resetting liquidation status back to **approved**  
+ *       - Creating a new liquidation activity entry with action **REVERTED**
+ *     tags:
+ *       - Liquidation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - liquidation_id
+ *             properties:
+ *               liquidation_id:
+ *                 type: int
+ *                 description: ID of the liquidation record to undo.
+ *     responses:
+ *       200:
+ *         description: Undo liquidation completed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: int
+ *                   example: "Undo liquidation successful"
+ *       400:
+ *         description: Missing or invalid liquidation_id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: int
+ *                   example: "Missing liquidation_id"
+ *       404:
+ *         description: Liquidation record not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: int
+ *                   example: "Liquidation not found"
+ *       500:
+ *         description: Internal Server Error during the undo process.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+
+/**
+ * @swagger
  * /liquidation/update_liquidation_rejected:
  *   put:
  *     summary: Update rejected liquidation
@@ -1940,40 +2238,10 @@ module.exports = swaggerDocs;
  *                 description: List of liquidation items to update
  *                 items:
  *                   type: object
- *                   required:
- *                     - id
- *                     - date
- *                     - particulars
- *                     - amount
  *                   properties:
  *                     id:
  *                       type: integer
  *                       description: Liquidation item ID
- *                     date:
- *                       type: string
- *                       description: Date of liquidation item
- *                     rt:
- *                       type: string
- *                       description: RT reference
- *                     store_name:
- *                       type: string
- *                       description: Store name
- *                     particulars:
- *                       type: string
- *                       description: Item particulars
- *                     from:
- *                       type: string
- *                       description: Travel origin
- *                     to:
- *                       type: string
- *                       description: Travel destination
- *                     mode_of_transportation:
- *                       type: string
- *                       description: Mode of transportation
- *                     amount:
- *                       type: number
- *                       format: float
- *                       description: Item amount
  *               remarks:
  *                 type: string
  *                 description: Remarks for the liquidation activity
@@ -1989,6 +2257,9 @@ module.exports = swaggerDocs;
  *                     image:
  *                       type: string
  *                       description: Base64 encoded image
+ *               status:
+ *                 type: string
+ *                 description: Liquidation status
  *     responses:
  *       200:
  *         description: Successfully updated liquidation and activity
@@ -2015,36 +2286,33 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
- * /liquidation/update_liquidation:
+ * /liquidation/update_liquidation_notification:
  *   put:
- *     summary: Update cash liquidation
- *     description: Update a cash liquidation
+ *     summary: Update cash liquidation notification
+ *     description: Update a cash liquidation notification by ID.
  *     tags:
  *       - Liquidation
- *     produces:
- *       - application/json
- *     parameters:
- *       - in: body
- *         name: body
- *         description: Cash liquidation data
- *         required: true
- *         schema:
- *           type: object
- *           properties:
- *             status:
- *               type: string
- *               enum: ["APPROVED", "VERIFIED", "COMPLETED", "REJECTED", "INCOMPLETE"]
- *             id:
- *               type: integer
- *             remarks:
- *               type: string
- *             receipts:
- *               type: string
- *             created_by:
- *               type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - notification
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 description: Liquidation ID
+ *                 example: 123
+ *               notification:
+ *                 type: integer
+ *                 description: Notification value (e.g., 0, 1, etc.)
+ *                 example: 0
  *     responses:
  *       200:
- *         description: Successfully updated cash liquidation
+ *         description: Successfully updated cash liquidation notification
  *         content:
  *           application/json:
  *             schema:
@@ -2052,9 +2320,9 @@ module.exports = swaggerDocs;
  *               properties:
  *                 result:
  *                   type: string
- *                   enum: [SUCCESS]
+ *                   example: "SUCCESS"
  *       400:
- *         description: Bad Request
+ *         description: Bad Request (Invalid input)
  *         content:
  *           application/json:
  *             schema:
@@ -2171,6 +2439,53 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /liquidation_item/getliquidation_item_stats:
+ *   get:
+ *     summary: Get liquidation item statistics
+ *     description: Retrieves various statistics about liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved liquidation item statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   started_from:
+ *                     type: string
+ *                     description: Starting location
+ *                   ended_to:
+ *                     type: string
+ *                     description: Destination location
+ *                   mode_of_transportation:
+ *                     type: string
+ *                     description: Mode of transportation used
+ *                   avg_amount:
+ *                     type: number
+ *                     format: decimal
+ *                     description: Average transportation amount
+ *                   min_amount:
+ *                     type: number
+ *                     format: decimal
+ *                     description: Minimum transportation amount
+ *                   max_amount:
+ *                     type: number
+ *                     format: decimal
+ *                     description: Maximum transportation amount
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
  * /liquidation_item/getliquidation_item_started_from:
  *   get:
  *     summary: Get distinct starting locations for liquidation items
@@ -2248,6 +2563,64 @@ module.exports = swaggerDocs;
  *                   mode_of_transportation:
  *                     type: string
  *                     description: Distinct mode of transportation for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_item/getstore_routes:
+ *   get:
+ *     summary: Get distinct store routes for liquidation items
+ *     description: Retrieve a list of distinct store routes for liquidation items
+ *     tags:
+ *       - Liquidation Item
+ *     parameters:
+ *       - name: store_name
+ *         in: query
+ *         required: true
+ *         description: Store name
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct store routes for liquidation items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   store:
+ *                     type: string
+ *                     description: Distinct store name for liquidation items
+ *                   location_from:
+ *                     type: string
+ *                     description: Distinct starting location for liquidation items
+ *                   location_to:
+ *                     type: string
+ *                     description: Distinct ending location for liquidation items
+ *                   mode_of_transportation:
+ *                     type: string
+ *                     description: Distinct mode of transportation for liquidation items
+ *                   amount:
+ *                     type: number
+ *                     description: Distinct amount for liquidation items
+ *                   amount_count:
+ *                     type: integer
+ *                     description: Count of distinct amounts for liquidation items
+ *                   route_path:
+ *                     type: string
+ *                     description: Route path for liquidation items
+ *                   usage_count:
+ *                     type: integer
+ *                     description: Count of usage for liquidation items
+ *                   step_order:
+ *                     type: integer
+ *                     description: Step order for liquidation items
  *       500:
  *         description: Internal Server Error
  *         content:
@@ -2705,6 +3078,300 @@ module.exports = swaggerDocs;
  *                   example: "District updated successfully."
  *       400:
  *         description: Missing or invalid data in request body
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion
+
+//#region Notification API Documentation
+/**
+ * @swagger
+ * /notification/getnotification:
+ *   get:
+ *     summary: Get notification data
+ *     tags: [Notification]
+ *     parameters:
+ *       - in: query
+ *         name: user
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The user type (Requester, Team Leader, Finance, Administrator, Custodian)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved notification data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 pending_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 approved_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 completed_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 rejected_cash_request_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashRequest'
+ *                 pending_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 approved_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 verified_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 completed_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 incomplete_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ *                 rejected_liquidation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Liquidation'
+ */
+
+//#endregion
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     RedFlag:
+ *       type: object
+ *       properties:
+ *         rf_id:
+ *           type: integer
+ *         rf_liquidation_id:
+ *           type: integer
+ *         rf_liquidation_item_id:
+ *           type: integer
+ *         rf_from:
+ *           type: string
+ *         rf_to:
+ *           type: string
+ *         rf_mode_of_transportation:
+ *           type: string
+ *           maxLength: 300
+ *         rf_min_amount:
+ *           type: number
+ *         rf_max_amount:
+ *           type: number
+ *         rf_amount:
+ *           type: number
+ *         rf_created_by:
+ *           type: string
+ *           maxLength: 300
+ *         rf_created_date:
+ *           type: string
+ *           maxLength: 20
+ */
+
+//#region Red Flags API Documentation
+
+/**
+ * @swagger
+ * /red_flags/getred_flags:
+ *   get:
+ *     summary: Get red flags data
+ *     tags: [Red Flags]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved red flags data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 red_flags_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RedFlag'
+ */
+
+/**
+ * @swagger
+ * /red_flags/getred_flags_by_search:
+ *   get:
+ *     summary: Get red flags data by search
+ *     tags: [Red Flags]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *         description: Offset for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Limit for pagination
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved red flags data by search
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 red_flags_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RedFlag'
+ */
+
+/**
+ * @swagger
+ * /red_flags/update_red_flags:
+ *   put:
+ *     summary: Update red flags data
+ *     tags: [Red Flags]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *               status:
+ *                 type: string
+ *                 enum: ["MINIMUM", "MAXIMUM", " "]
+ *     responses:
+ *       200:
+ *         description: Successfully updated red flags data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion
+
+//#region Mode of Transportation API Documentation
+
+/**
+ * @swagger
+ * /mode_of_transportation/getmode_of_transportation:
+ *   get:
+ *     summary: Get mode of transportation data
+ *     tags: [Mode of Transportation]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved mode of transportation data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mode_of_transportation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ModeOfTransportation'
+ */
+
+/**
+ * @swagger
+ * /mode_of_transportation/update_mode_of_transportation:
+ *   put:
+ *     summary: Update mode of transportation data
+ *     tags: [Mode of Transportation]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: ["ACTIVE", "INACTIVE"]
+ *     responses:
+ *       200:
+ *         description: Successfully updated mode of transportation data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /mode_of_transportation/create_mode_of_transporation:
+ *   post:
+ *     summary: Create mode of transportation
+ *     tags: [Mode of Transportation]
+ *     requestBody:
+ *       description: Mode of transportation data
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Name of the mode of transportation
+ *                 example: "Taxi"
+ *     responses:
+ *       200:
+ *         description: Successfully created mode of transportation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       500:
  *         description: Internal Server Error
  *         content:

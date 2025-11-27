@@ -4,54 +4,36 @@
 module.exports = {
   async up (queryInterface, Sequelize) {
     /**
-     * Add altering commands here.  
+     * Add altering commands here.
      *
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.createTable('liquidation', {
-      l_id: {
+    await queryInterface.createTable('master_min_max', {
+      mmm_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
-        allowNull: false,
       },
-      l_cr_reference_id: {
-        type: Sequelize.STRING(120),
-        allowNull: false,
-        references: {
-          model: 'cash_request',
-          key: 'cr_reference_id',
-        },
-      },
-      l_description: {
+      mmm_from: {
         type: Sequelize.STRING(300),
         allowNull: false,
       },
-      l_amount_obtained: {
+      mmm_to: {
+        type: Sequelize.STRING(300),
+        allowNull: false,
+      },
+      mmm_mode_of_transportation: {
+        type: Sequelize.STRING(300),
+        allowNull: false,
+      },
+      mmm_min_amount: {
         type: Sequelize.DECIMAL(10, 2),
         allowNull: false,
       },
-      l_amount_expended: {
+      mmm_max_amount: {
         type: Sequelize.DECIMAL(10, 2),
         allowNull: false,
-      },
-      l_reimburse_return: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      l_created_date: {
-        type: Sequelize.STRING(20),
-        allowNull: false,
-      },
-      l_status: {
-        type: Sequelize.ENUM('pending', 'approved', 'verified', 'completed', 'incomplete', 'rejected'),
-        allowNull: false,
-      },
-      l_notification: {
-        type: Sequelize.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
       },
     });
 
@@ -64,5 +46,6 @@ module.exports = {
      * Example:
      * await queryInterface.dropTable('users');
      */
+    await queryInterface.dropTable('master_min_max');
   }
 };

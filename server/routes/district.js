@@ -77,7 +77,7 @@ router.get('/getdistrict_by_search', async (req, res) => {
              md_store_name LIKE ? OR
              md_city_province LIKE ?)
            ORDER BY md_store_name ASC`,
-          [`%${search}%`, `%${search}%`, `%${search}%`]
+          [`%${search.replace(/'/g, "\\'")}%`, `%${search.replace(/'/g, "\\'")}%`, `%${search.replace(/'/g, "\\'")}%`]
         );
       } else {
         select_district_sql = SelectStatement(

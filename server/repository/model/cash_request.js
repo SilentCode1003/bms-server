@@ -27,7 +27,8 @@ const CashRequests = {
             "cr_position",
             "cr_amount",
             "cr_request_date",
-            "cr_status"
+            "cr_status",
+            "cr_notification"
         ],
         selectOptionsColumn: {
             id: "cr_id",
@@ -41,7 +42,8 @@ const CashRequests = {
             position: "cr_position",
             amount: "cr_amount",
             request_date: "cr_request_date",
-            status: "cr_status"
+            status: "cr_status",
+            notification: "cr_notification"
         }
     },
     cash_request_activity: {

@@ -19,6 +19,14 @@ const { EncrypterString, DecrypterString } = require("../repository/helper/cryto
 const jwt = require('jsonwebtoken');
 var router = express.Router();
 
+// Function to emit dashboard updates
+const emitDashboardUpdate = (req, event, data) => {
+    const io = req.app.get('io');
+    if (io) {
+        io.emit(`dashboard:${event}`, data);
+    }
+};
+
 /* GET dashboard page. */
 router.get('/', function (req, res, next) {
     res.render('dashboard', { title: 'Express' });
@@ -31,8 +39,8 @@ router.get('/get_finance_cards', async (req, res) => {
     try {
         async function ProcessData() {
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
         const parseToSqlDate = (dt, endOfDay = false) => {
         if (!dt) return null;
@@ -70,33 +78,75 @@ router.get('/get_finance_cards', async (req, res) => {
       let whereSql_cr = whereClauses_cr.length
         ? `AND ${whereClauses_cr.join(" AND ")}`
         : "";
-     
-      let whereClauses_liq = [];
-      if (start) whereClauses_liq.push(`l_created_date >= '${start}'`);
-      if (end) whereClauses_liq.push(`l_created_date <= '${end}'`);
-      let whereSql_liq = whereClauses_liq.length
-        ? `AND ${whereClauses_liq.join(" AND ")}`
-        : "";
 
             let select_finance_cards_sql = SelectStatement(
                 `SELECT
-                                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'pending' ${whereSql_cr}) as pending_requests,
-                                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_count,
-                                (SELECT COUNT(*) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as verified_liquidations_count,
-                                (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_total,
-                                (SELECT SUM(l_amount_expended +  l_reimburse_return) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as verified_liquidations_total,
-                                (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) - (SELECT SUM(l_amount_expended +  l_reimburse_return) FROM liquidation WHERE l_status = 'verified' ${whereSql_liq}) as outstanding_balance
-                                `
+                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'pending' ${whereSql_cr}) as pending_requests,
+                (SELECT COUNT(*) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_count,
+                (SELECT COUNT(DISTINCT l.l_id) 
+                 FROM liquidation l 
+                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id 
+                 WHERE l.l_status = 'verified' 
+                 AND cr.cr_status = 'completed' 
+                 ${whereSql_cr}) as verified_liquidations_count,
+                (SELECT SUM(cr_amount) FROM cash_request WHERE cr_status = 'completed' ${whereSql_cr}) as released_vouchers_total,
+                (SELECT SUM(l.l_amount_expended + l.l_reimburse_return) 
+                 FROM liquidation l 
+                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id 
+                 WHERE l.l_status = 'verified' 
+                 AND cr.cr_status = 'completed' 
+                 ${whereSql_cr}) as verified_liquidations_total,
+                (
+                COALESCE(
+                  (SELECT SUM(cr_amount)
+                  FROM cash_request
+                  WHERE cr_status = 'completed' ${whereSql_cr}),
+                  0
+                )
+                -
+                COALESCE(
+                  (SELECT SUM(l.l_amount_expended + l.l_reimburse_return)
+                  FROM liquidation l
+                  INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
+                  WHERE l.l_status = 'verified' 
+                  AND cr.cr_status = 'completed' 
+                  ${whereSql_cr}),
+                  0
+                )
+              ) AS outstanding_balance
+                `
             );
 
             let result = await Select(select_finance_cards_sql);
+            emitDashboardUpdate(req, 'finance_cards_fetched', {
+                event: 'finance_cards_fetched',
+                status: 'success',
+                count: result.length,
+                timestamp: new Date().toISOString()
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('dashboard:finance_cards_fetched', {
+                    status: 'success',
+                    count: result.length,
+                    timestamp: new Date().toISOString()
+                });
+            }
 
             return res.status(200).json(result);
         }
 
         await ProcessData();
     } catch (error) {
-        console.error("Error during login:", error);
+        console.error("Error during get_finance_cards:", error);
+        emitDashboardUpdate(req, 'error', {
+            event: 'finance_cards_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch finance cards',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json(JsonResposeError(error));
     }
 });
@@ -106,8 +156,8 @@ router.get('/get_finance_charts', async (req, res) => {
         let { startDate, endDate } = req.query;
         async function ProcessData() {
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
         const parseToSqlDate = (dt, endOfDay = false) => {
         if (!dt) return null;
@@ -235,12 +285,44 @@ router.get('/get_finance_charts', async (req, res) => {
 
             let request_status = await Select(select_request_status_sql);
 
+            // Emit socket event for the fetch
+            emitDashboardUpdate(req, 'finance_charts_fetched', {
+                event: 'finance_charts_fetched',
+                status: 'success',
+                counts: {
+                    outstanding_balance: outstanding_balance.length,
+                    cash_flow: cash_flow.length,
+                    request_status: request_status.length,
+                },
+                timestamp: new Date().toISOString()
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('dashboard:finance_charts_fetched', {
+                    status: 'success',
+                    counts: {
+                        outstanding_balance: outstanding_balance.length,
+                        cash_flow: cash_flow.length,
+                        request_status: request_status.length,
+                    },
+                    timestamp: new Date().toISOString()
+                });
+            }
+
             return res.status(200).json({ outstanding_balance, cash_flow, request_status });
         }
 
         await ProcessData();
     } catch (error) {
-        console.error("Error during login:", error);
+        console.error("Error during get_finance_charts:", error);
+        emitDashboardUpdate(req, 'error', {
+            event: 'finance_charts_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch finance charts',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json(JsonResposeError(error));
     }
 });
@@ -248,11 +330,11 @@ router.get('/get_finance_charts', async (req, res) => {
 router.get('/get_requester_cards', async (req, res) => {
     try {
         let { employee_id, startDate, endDate } = req.query;
-console.log(req.query)
+
         async function ProcessData() {
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
 
         const parseToSqlDate = (dt, endOfDay = false) => {
@@ -318,6 +400,25 @@ console.log(req.query)
                 );
 
                 let result = await Select(select_requester_cards_sql);
+
+                emitDashboardUpdate(req, 'requester_cards_fetched', {
+                    event: 'requester_cards_fetched',
+                    status: 'success',
+                    count: result.length,
+                    filters: { employee_id },
+                    timestamp: new Date().toISOString()
+                });
+
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('dashboard:requester_cards_fetched', {
+                        status: 'success',
+                        count: result.length,
+                        filters: { employee_id },
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
                 return res.status(200).json(result);
             } else {
                 let select_requester_cards_sql = SelectStatement(
@@ -336,12 +437,37 @@ console.log(req.query)
                     `
                 );
                 let result = await Select(select_requester_cards_sql);
+
+                emitDashboardUpdate(req, 'requester_cards_fetched', {
+                    event: 'requester_cards_fetched',
+                    status: 'success',
+                    count: result.length,
+                    timestamp: new Date().toISOString()
+                });
+
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('dashboard:requester_cards_fetched', {
+                        status: 'success',
+                        count: result.length,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
                 return res.status(200).json(result);
             }
         }
+
         await ProcessData();
     } catch (error) {
-        console.error("Error during login:", error);
+        console.error("Error during get_requester_cards:", error);
+        emitDashboardUpdate(req, 'error', {
+            event: 'requester_cards_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch requester cards',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json(JsonResposeError(error));
     }
 });
@@ -353,8 +479,8 @@ router.get('/get_teamleader_cards', async (req, res) => {
         async function ProcessData() {
 
         if (!startDate && !endDate) {
-            startDate = GetCurrentDate();
-            endDate = GetCurrentDate();
+            startDate = require('moment')().startOf('isoWeek').format('YYYY-MM-DD');
+            endDate = require('moment')().endOf('isoWeek').format('YYYY-MM-DD');
         }
 
         const parseToSqlDate = (dt, endOfDay = false) => {
@@ -408,7 +534,7 @@ router.get('/get_teamleader_cards', async (req, res) => {
                        WHERE cr_status = 'pending' ${whereSql_cr} ${employee_id ? "AND cr_employee_id = ?" : ""}) as pending_requests,
                     
                     (SELECT COUNT(*) 
-                       FROM cash_request 
+                       FROM cash_request
                        WHERE cr_status = 'approved' OR cr_status = 'completed' ${whereSql_cr} ${employee_id ? "AND cr_employee_id = ?" : ""}) as approved_requests,
                     
                     (SELECT COUNT(*) 
@@ -425,12 +551,38 @@ router.get('/get_teamleader_cards', async (req, res) => {
             );
 
             let result = await Select(select_teamleader_cards_sql);
+
+            emitDashboardUpdate(req, 'teamleader_cards_fetched', {
+                event: 'teamleader_cards_fetched',
+                status: 'success',
+                count: result.length,
+                filters: { employee_id },
+                timestamp: new Date().toISOString()
+            });
+
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('dashboard:teamleader_cards_fetched', {
+                    status: 'success',
+                    count: result.length,
+                    filters: { employee_id },
+                    timestamp: new Date().toISOString()
+                });
+            }
+
             return res.status(200).json(result);
         }
 
         await ProcessData();
     } catch (error) {
         console.error("Error during get_teamleader_cards:", error);
+        emitDashboardUpdate(req, 'error', {
+            event: 'teamleader_cards_fetch_error',
+            status: 'error',
+            message: 'Failed to fetch team leader cards',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
         res.status(500).json(JsonResposeError(error));
     }
 });
@@ -473,29 +625,35 @@ let select_location_expenses_sql = SelectStatement(`
   ORDER BY location_name;
 `);
 
-
     let location_result = await Select(select_location_expenses_sql);
+
+    // Emit socket event for the fetch
+    emitDashboardUpdate(req, 'store_location_expenses_fetched', {
+      event: 'store_location_expenses_fetched',
+      status: 'success',
+      counts: { stores: store_result.length, locations: location_result.length },
+      timestamp: new Date().toISOString()
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('dashboard:store_location_expenses_fetched', {
+        status: 'success',
+        counts: { stores: store_result.length, locations: location_result.length },
+        timestamp: new Date().toISOString()
+      });
+    }
 
     return res.status(200).json({ store_result, location_result });
   } catch (error) {
     console.error("Error during get_store_and_location_expenses:", error);
+    emitDashboardUpdate(req, 'error', {
+      event: 'store_location_expenses_fetch_error',
+      status: 'error',
+      message: 'Failed to fetch store and location expenses',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
     res.status(500).json(JsonResposeError(error));
   }
 });
-
-
-// router.get('/get_user_overall_expenses', async (req, res) => {
-//     try {
-//      async function ProcessData() {
-//         `SELECT
-        
-//         `
-//      }
-     
-//      await ProcessData();
-//      return res.status(200).json(result);
-//     } catch (error) {
-//         console.error("Error during get_user_overall_expenses:", error);
-//         res.status(500).json(JsonResposeError(error));
-//     }
-// });
