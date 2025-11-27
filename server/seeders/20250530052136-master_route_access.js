@@ -1,5 +1,5 @@
 "use strict";
-
+//npx sequelize-cli db:seed --seed 20250530052136-master_route_access.js
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {

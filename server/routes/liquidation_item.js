@@ -178,7 +178,7 @@ router.get('/getliquidation_item_mode_of_transportation', async (req, res) => {
                 console.log("getliquidation_item_mode_of_transportation");
                 async function ProcessData() {
                         let select_liquidation_item_stats_sql = SelectStatement(
-                        `SELECT 
+                                `SELECT 
                         li_mode_of_transportation AS mode_of_transportation
                         FROM liquidation_item
                         LEFT JOIN liquidation l ON li_liquidation_id = l.l_id
@@ -203,30 +203,68 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
         try {
                 const { id } = req.query;
                 async function ProcessData() {
+
                         let select_liquidation_item_sql = SelectStatement(
                                 `SELECT
-                                li_liquidation_id as liquidation_id,
-                                li_date as date,
-                                li_rt as rt,
-                                li_store_name as store_name,
-                                li_particulars as particulars,
-                                li_from as started_from,
-                                li_to as ended_to,
+                                li_id AS id,
+                                li_liquidation_id AS liquidation_id,
+                                li_date AS date,
+                                li_rt AS rt,
+                                li_store_name AS store_name,
+                                li_particulars AS particulars,
+                                li_from AS started_from,
+                                li_to AS ended_to,
                                 li_mode_of_transportation,
-                                li_amount as amount
+                                li_amount AS amount
                                 FROM liquidation_item
-                                WHERE li_liquidation_id = ?
-                                `, [id]
+                                WHERE li_liquidation_id = ?`,
+                                [id]
                         );
 
-                        let result = await Select(select_liquidation_item_sql);
+                        let items = await Select(select_liquidation_item_sql);
 
-                        return res.status(200).json(result);
+                        const finalResult = [];
+                        for (let row of items) {
+                                let count = 0;
+                                let master_sql = SelectStatement(
+                                        `SELECT mmm_min_amount AS min, mmm_max_amount AS max
+                                        FROM master_min_max
+                                        WHERE mmm_from = ?
+                                        AND mmm_to = ?
+                                        AND mmm_mode_of_transportation = ?`,
+                                        [row.started_from, row.ended_to, row.li_mode_of_transportation]
+                                );
+
+                                let master = await Select(master_sql);
+                                let min = master.length ? master[0].min : null;
+                                let max = master.length ? master[0].max : null;
+                                let is_red_flag = false;
+                                let status = "";
+
+                                // if (min !== null && max !== null) {
+                                //     if (row.amount < min || row.amount > max) {
+                                //         is_red_flag = true;
+                                //     }
+                                // }
+
+                                if (max !== null && row.amount > max) {
+                                        status = "MAXIMUM";
+                                } else if (min !== null && row.amount < min) {
+                                        status = "MINIMUM";
+                                }
+
+                                finalResult.push({
+                                        ...row,
+                                        //     is_red_flag: is_red_flag,
+                                        status: status
+                                });
+                        }
+                        return res.status(200).json(finalResult);
                 }
 
                 await ProcessData();
         } catch (error) {
-                console.error("Error during login:", error);
+                console.error("Error during fetching liquidation_item:", error);
                 res.status(500).json(JsonResposeError(error));
         }
 });
@@ -236,7 +274,7 @@ router.get('/getstore_routes', async (req, res) => {
                 const { store_name } = req.query;
                 async function ProcessData() {
                         let select_store_routes_sql = SelectStatement(
-                        `WITH RECURSIVE route_chain AS (
+                                `WITH RECURSIVE route_chain AS (
                         SELECT 
                                 li_store_name,
                                 li_from,

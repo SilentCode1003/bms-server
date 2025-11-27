@@ -56,7 +56,7 @@ router.get('/getcash_request_activity', async (req, res) => {
                         );
 
                         let result = await Select(select_cash_request_activity_sql);
-
+console.log(result)
                         return res.status(200).json(result);
                 }
 

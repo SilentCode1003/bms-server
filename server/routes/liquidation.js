@@ -284,8 +284,15 @@ router.get("/getapproved_liquidation", async (req, res) => {
 
 router.get("/getstore_by_liquidation", async (req, res) => {
   try {
-    const { store_name } = req.query;
-
+    const { store_name, offset, limit } = req.query;
+        let limitValue =
+            limit && limit !== "0" && limit !== "-1" && limit !== ""
+                ? parseInt(limit)
+                : 999999;
+        let offsetValue =
+            offset && offset !== "0" && offset !== "-1" && offset !== ""
+                ? parseInt(offset)
+                : 0;
     if (!store_name) {
       return res.status(400).json(JsonResposeError("Missing store_name"));
     }
@@ -302,7 +309,8 @@ router.get("/getstore_by_liquidation", async (req, res) => {
         INNER JOIN liquidation_item li ON l.l_id = li.li_liquidation_id
         INNER JOIN cash_request cr ON cr.cr_reference_id = l.l_cr_reference_id
         WHERE li.li_store_name = ?
-        GROUP BY l.l_cr_reference_id, li.li_store_name, cr.cr_employee, l.l_created_date;`,
+        GROUP BY l.l_cr_reference_id, li.li_store_name, cr.cr_employee, l.l_created_date
+        LIMIT ${limitValue} OFFSET ${offsetValue}`,
         [store_name, store_name]
       );
 
@@ -462,6 +470,7 @@ router.post("/create_liquidation", async (req, res) => {
           );
       }
     }
+    
     const io = req.app.get("io");
     if (io) {
       io.emit("liquidation:creating", {
@@ -543,13 +552,19 @@ router.post("/create_liquidation", async (req, res) => {
 
       for (const item of request_items) {
         const cleanFrom = (item.from || "")
-          .replace(/[^a-zA-Z0-9 ]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/ /g, " ")
           .toUpperCase();
         const cleanTo = (item.to || "")
-          .replace(/[^a-zA-Z0-9 ]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/ /g, " ")
           .toUpperCase();
         const cleanMode = (item.mode_of_transportation || "")
-          .replace(/[^a-zA-Z0-9 ]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/ /g, " ")
           .toUpperCase();
         const amount = parseFloat(item.amount) || 0;
 
@@ -1058,37 +1073,56 @@ router.put("/update_liquidation_rejected", async (req, res) => {
     if (Array.isArray(items) && items.length > 0) {
       const cleanedItems = items.map((item) => ({
         store_name: (item.store_name || "")
+          .replace(/ +/g, " ")
           .replace(/[^a-zA-Z0-9 ]/g, "")
           .toUpperCase()
           .trim(),
         to: (item.to || "")
+          .replace(/ +/g, " ")
           .replace(/[^a-zA-Z0-9 ]/g, "")
           .toUpperCase()
           .trim(),
       }));
 
       const uniqueStores = [
-        ...new Set(cleanedItems.map(i => i.store_name).filter(Boolean)),
+        ...new Set(cleanedItems.map((i) => i.store_name).filter(Boolean)),
+      ];
+      const uniqueTo = [
+        ...new Set(cleanedItems.map((i) => i.to).filter(Boolean)),
       ];
 
-      const allStoresHaveSelfTo = uniqueStores.every(store =>
-        cleanedItems.some(row =>
-          row.store_name === store && row.to === store
-        )
-      );
-
-      console.log("uniqueStores:", uniqueStores);
-      console.log("allStoresHaveSelfTo:", allStoresHaveSelfTo);
-
-      if (!allStoresHaveSelfTo) {
-        return res.status(400).json(
-          JsonResposeError(
-            "Please enter the store destination in the 'TO' column for each store. Each store requires at least one row where TO matches the Store Name."
-          )
+      let hasReachedAllDestinations = false;
+      console.log("STORE NAME", uniqueStores)
+      console.log("TO", uniqueTo)
+      console.log("Uniquestores", uniqueStores.length)
+      console.log("UniqueTo", uniqueTo.length)
+      if (uniqueStores.length === 1) {
+        const store = uniqueStores[0];
+        hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
+      } else {
+        hasReachedAllDestinations = uniqueStores.every((store) =>
+          cleanedItems.some((i) => i.to === store)
         );
       }
+      console.log("hasReachedAllDestinations", hasReachedAllDestinations)
+      let missingToStores = [];
+      console.log(uniqueStores)
+      uniqueStores.forEach((store) => {
+        if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
+          missingToStores.push(store);
+        }
+      });
+      if (missingToStores.length > 0) {
+        return res
+          .status(400)
+          .json(
+            JsonResposeError(
+              `Please mention the store destination you reached in the 'TO' column input field so we know you reached the store. The following stores have no TO store name: ${missingToStores.join(", ")}`,
+              { missingStores: missingToStores }
+            )
+          );
+      }
     }
-
 
     let storedReceipts = Array.isArray(receipts)
       ? receipts.map((r, i) => ({

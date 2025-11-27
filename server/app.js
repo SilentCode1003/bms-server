@@ -22,6 +22,7 @@ var liquidation_activityRouter = require('./routes/liquidation_activity');
 var districtRouter = require('./routes/district');
 var notificationRouter = require('./routes/notification');
 var red_flagsRouter = require('./routes/red_flags');
+var mode_of_transportationRouter = require('./routes/mode_of_transportation');
 
 
 const verifyjwt  = require('./repository/middleware/authentication');
@@ -66,6 +67,7 @@ app.use('/liquidation_activity', liquidation_activityRouter);
 app.use('/district', districtRouter);
 app.use('/notification', notificationRouter);
 app.use('/red_flags', red_flagsRouter);
+app.use('/mode_of_transportation', mode_of_transportationRouter);
 
 app.use(function(req, res, next) {
   next(createError(404));
@@ -77,7 +79,8 @@ app.use(function(err, req, res, next) {
                       req.path.startsWith('/cash_request/') ||
                       req.path.startsWith('/route_access/') ||
                       req.path.startsWith('/notification/') ||
-                      req.path.startsWith('/red_flags/');
+                      req.path.startsWith('/red_flags/') ||
+                      req.path.startsWith('/mode_of_transportation/');
 
   if (isApiRequest) {
     return res.status(err.status || 500).json({

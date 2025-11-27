@@ -3212,8 +3212,44 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /red_flags/getred_flags_by_search:
+ *   get:
+ *     summary: Get red flags data by search
+ *     tags: [Red Flags]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *         description: Offset for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Limit for pagination
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved red flags data by search
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 red_flags_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RedFlag'
+ */
+
+/**
+ * @swagger
  * /red_flags/update_red_flags:
- *   post:
+ *   put:
  *     summary: Update red flags data
  *     tags: [Red Flags]
  *     requestBody:
@@ -3231,6 +3267,104 @@ module.exports = swaggerDocs;
  *     responses:
  *       200:
  *         description: Successfully updated red flags data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion
+
+//#region Mode of Transportation API Documentation
+
+/**
+ * @swagger
+ * /mode_of_transportation/getmode_of_transportation:
+ *   get:
+ *     summary: Get mode of transportation data
+ *     tags: [Mode of Transportation]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved mode of transportation data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mode_of_transportation_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ModeOfTransportation'
+ */
+
+/**
+ * @swagger
+ * /mode_of_transportation/update_mode_of_transportation:
+ *   put:
+ *     summary: Update mode of transportation data
+ *     tags: [Mode of Transportation]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: ["ACTIVE", "INACTIVE"]
+ *     responses:
+ *       200:
+ *         description: Successfully updated mode of transportation data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /mode_of_transportation/create_mode_of_transporation:
+ *   post:
+ *     summary: Create mode of transportation
+ *     tags: [Mode of Transportation]
+ *     requestBody:
+ *       description: Mode of transportation data
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Name of the mode of transportation
+ *                 example: "Taxi"
+ *     responses:
+ *       200:
+ *         description: Successfully created mode of transportation
  *         content:
  *           application/json:
  *             schema:

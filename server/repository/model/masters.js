@@ -3,6 +3,7 @@ npx sequelize-cli migration:generate --name master_route_access
 npx sequelize-cli migration:generate --name master_wallet
 npx sequelize-cli migration:generate --name master_wallet_activity
 npx sequelize-cli migration:generate --name master_district
+npx sequelize-cli migration:generate --name master_mode_of_transportation
 npx sequelize-cli migration:generate --name red_flags
 npx sequelize-cli migration:generate --name master_min_max
 */
@@ -93,6 +94,24 @@ const Masters = {
             store_name: "md_store_name",
             city_province: "md_city_province",
             status: "md_status",
+        },
+    },
+    master_mode_of_transportation: {
+        tablename: "master_mode_of_transportation",
+        prefix: "mmot_",
+        insertColumns: [
+            "name",
+            "status",
+        ],
+        selectColumns: [
+            "mmot_id",
+            "mmot_name",
+            "mmot_status",
+        ],
+        selectOptionsColumn: {
+            id: "mmot_id",
+            name: "mmot_name",
+            status: "mmot_status",
         },
     },
     master_min_max: {
