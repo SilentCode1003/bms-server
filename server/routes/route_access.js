@@ -150,7 +150,11 @@ router.post("/createbulk_route_access", async (req, res) => {
 
         const routeNames = [
             "employee_request",
+            "approved_request",
+            "rejected_request",
             "employee_liquidation",
+            "liquidated_request",
+            "completed_request",
             "view_cash_request",
             "view_liquidation_form",
             "teamlead_pendings",
@@ -175,17 +179,8 @@ router.post("/createbulk_route_access", async (req, res) => {
             "revolving_fund",
             "cash_disbursement",
             "finance_history",
-            "final_approval",
-            "all_request",
-            "users",
-            "access",
-            "liquidation_form",
-            "admin_liquid_form",
-            "completed_liquidations",
-            "admin_reject_liquidations",
-            "approved_request",
-            "rejected_request",
-            "liquidated_request",
+            "stores",
+            "store_routes",
         ];
 
         for (let name of routeNames) {

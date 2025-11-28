@@ -5,7 +5,11 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const names = [
       "employee_request",
+      "approved_request",
+      "rejected_request",
       "employee_liquidation",
+      "liquidated_request",
+      "completed_request",
       "view_cash_request",
       "view_liquidation_form",
       "teamlead_pendings",
@@ -30,6 +34,7 @@ module.exports = {
       "revolving_fund",
       "cash_disbursement",
       "finance_history",
+      "red_tagging",
       "final_approval",
       "all_request",
       "users",
@@ -38,9 +43,8 @@ module.exports = {
       "admin_liquid_form",
       "completed_liquidations",
       "admin_reject_liquidations",
-      "approved_request",
-      "rejected_request",
-      "liquidated_request",
+      "stores",
+      "store_routes",
     ];
 
     const adminExcluded = ["route_access", "dashboard", "generate_reports"];
