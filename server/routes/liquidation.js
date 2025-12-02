@@ -362,6 +362,7 @@ router.get("/getroutes_by_liquidation", async (req, res) => {
             INNER JOIN liquidation_item ON l_id = li_liquidation_id
             WHERE li_store_name = ?
             ${condition}
+            ORDER BY l_created_date DESC
             `,
         [store_name, ...params]
       );
@@ -552,19 +553,22 @@ router.post("/create_liquidation", async (req, res) => {
 
       for (const item of request_items) {
         const cleanFrom = (item.from || "")
-          .replace(/\s+/g, " ")
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s{2,}/g, " ")
           .trim()
-          .replace(/ /g, " ")
+          .replace(/\s/g, " ")
           .toUpperCase();
         const cleanTo = (item.to || "")
-          .replace(/\s+/g, " ")
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s{2,}/g, " ")
           .trim()
-          .replace(/ /g, " ")
+          .replace(/\s/g, " ")
           .toUpperCase();
         const cleanMode = (item.mode_of_transportation || "")
-          .replace(/\s+/g, " ")
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s{2,}/g, " ")
           .trim()
-          .replace(/ /g, " ")
+          .replace(/\s/g, " ")
           .toUpperCase();
         const amount = parseFloat(item.amount) || 0;
 
@@ -1073,14 +1077,16 @@ router.put("/update_liquidation_rejected", async (req, res) => {
     if (Array.isArray(items) && items.length > 0) {
       const cleanedItems = items.map((item) => ({
         store_name: (item.store_name || "")
-          .replace(/ +/g, " ")
-          .replace(/[^a-zA-Z0-9 ]/g, "")
-          .toUpperCase()
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s+/g, " ")
           .trim(),
         to: (item.to || "")
-          .replace(/ +/g, " ")
-          .replace(/[^a-zA-Z0-9 ]/g, "")
-          .toUpperCase()
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s+/g, " ")
+          .trim(),
+        mode_of_transportation: (item.mode_of_transportation || "")
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s+/g, " ")
           .trim(),
       }));
 
@@ -1092,23 +1098,27 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       ];
 
       let hasReachedAllDestinations = false;
-      console.log("STORE NAME", uniqueStores)
-      console.log("TO", uniqueTo)
-      console.log("Uniquestores", uniqueStores.length)
-      console.log("UniqueTo", uniqueTo.length)
       if (uniqueStores.length === 1) {
         const store = uniqueStores[0];
-        hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
+        hasReachedAllDestinations = cleanedItems.some(
+          (i) => i.to === store
+        );
       } else {
         hasReachedAllDestinations = uniqueStores.every((store) =>
           cleanedItems.some((i) => i.to === store)
         );
       }
-      console.log("hasReachedAllDestinations", hasReachedAllDestinations)
+
       let missingToStores = [];
-      console.log(uniqueStores)
       uniqueStores.forEach((store) => {
-        if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
+        if (
+          !cleanedItems.some(
+            (i) =>
+              i.store_name === store &&
+              i.to === store &&
+              i.mode_of_transportation !== ""
+          )
+        ) {
           missingToStores.push(store);
         }
       });
@@ -1117,7 +1127,9 @@ router.put("/update_liquidation_rejected", async (req, res) => {
           .status(400)
           .json(
             JsonResposeError(
-              `Please mention the store destination you reached in the 'TO' column input field so we know you reached the store. The following stores have no TO store name: ${missingToStores.join(", ")}`,
+              `Please mention the store destination you reached in the 'TO' column input field so we know you reached the store. The following stores have no TO store name: ${missingToStores.join(
+                ", "
+              )}`,
               { missingStores: missingToStores }
             )
           );
@@ -1171,9 +1183,15 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       item.rt || "N/A",
       item.store_name || "N/A",
       item.particulars || "N/A",
-      item.from || "N/A",
-      item.to || "N/A",
-      item.mode_of_transportation || "N/A",
+      item.from
+        ? item.from.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
+        : "N/A",
+      item.to
+        ? item.to.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
+        : "N/A",
+      item.mode_of_transportation
+        ? item.mode_of_transportation.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
+        : "N/A",
       parseFloat(item.amount) || 0,
     ]);
 

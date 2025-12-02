@@ -32,8 +32,7 @@ router.get("/getroute_access", (req, res) => {
         async function ProcessData() {
             let select_sql = SelectAllStatement(
                 Masters.master_route_access.tablename,
-                Masters.master_route_access.selectColumns,
-                Masters.master_route_access.selectOptionsColumn.id,
+                Masters.master_route_access.selectColumns
             );
             let result = await Select(select_sql);
             res.status(200).json(JsonResponseData(DataModeling(result, Masters.master_route_access.prefix)));

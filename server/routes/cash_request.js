@@ -324,7 +324,12 @@ console.log(req.body)
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
-    
+        // if(req.body){
+    //   console.log("No data provided.")
+    //   return res.status(400).json({
+    //     message: "No data provided.",
+    //   });
+    // }
     let select_liquidation_sql = "";
       select_liquidation_sql = SelectStatement(
         `SELECT cr_id
@@ -475,6 +480,12 @@ router.put("/updatecash_request", async (req, res) => {
   try {
     const { status, id, remarks, updated_by, cash_voucher } = req.body;
     console.log(req.body);
+            // if(req.body){
+    //   console.log("No data provided.")
+    //   return res.status(400).json({
+    //     message: "No data provided.",
+    //   });
+    // }
     let created_at = GetCurrentDatetime();
     if (!id || !status) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
