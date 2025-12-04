@@ -259,6 +259,7 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
                                         status: status
                                 });
                         }
+                        // console.log(finalResult)
                         return res.status(200).json(finalResult);
                 }
 

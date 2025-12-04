@@ -423,6 +423,9 @@ router.post("/create_liquidation", async (req, res) => {
     let action = "PREPARED";
     let created_at = GetCurrentDatetime();
 
+    if(amount_obtained === 0){
+      return res.status(400).json(JsonResposeError("amount obtained is zero"));
+    }
     const checkSql = SelectStatement(
       `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
       [reference_id]
