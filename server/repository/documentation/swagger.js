@@ -1782,6 +1782,59 @@ module.exports = swaggerDocs;
  *         description: Internal server error
  */
 
+
+/**
+ * @swagger
+ * /liquidation/getliquidation_by_cv_number:
+ *   get:
+ *     summary: Get liquidation by CV Number
+ *     description: Retrieve liquidation record by CV Number
+ *     tags:
+ *       - Liquidation
+ *     parameters:
+ *       - in: query
+ *         name: cv_number
+ *         schema:
+ *           type: string
+ *           description: CV Number of the liquidation
+ *         required: true
+ *         description: The CV Number of the liquidation
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved liquidation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   reference_id:
+ *                     type: string
+ *                   description:
+ *                     type: string
+ *                   amount_obtained:
+ *                     type: number
+ *                   amount_expended:
+ *                     type: number
+ *                   reimburse_return:
+ *                     type: number
+ *                   created_date:
+ *                     type: string
+ *                     format: date-time
+ *                   status:
+ *                     type: string
+ *       400:
+ *         description: Missing or invalid CV Number
+ *       404:
+ *         description: No liquidation found for this CV Number
+ *       500:
+ *         description: Internal server error
+ */
+
+
 /**
  * @swagger
  * /liquidation/getapproved_liquidation:
