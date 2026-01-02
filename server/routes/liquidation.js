@@ -45,7 +45,6 @@ module.exports = router;
 
 router.get("/getcash_liquidation", async (req, res) => {
   const { status, employee_id } = req.query;
-  console.log(req.query);
   try {
     async function ProcessData() {
       let whereConditions = [];
@@ -118,7 +117,6 @@ router.get("/getcash_liquidation", async (req, res) => {
       );
 
       let result = await Select(select_liquidation_sql);
-console.log(result)
       emitLiquidationUpdate(req, "fetched", {
         event: "liquidation_fetched",
         status: "success",
@@ -220,13 +218,14 @@ router.get("/getliquidation_by_cv_number", async (req, res) => {
     const {
       cv_number
     } = req.query;
-
     async function ProcessData() {
 
       let select_liquidation_sql = SelectStatement(
         `SELECT
         l_id as id,
-        l_cr_reference_id as reference_id,
+        cr_employee as employee,
+        cr_department as department,
+        l_cr_reference_id as cr_reference_id,
         l_description as description,
         l_amount_obtained as amount_obtained,
         l_amount_expended as amount_expended,
@@ -235,14 +234,13 @@ router.get("/getliquidation_by_cv_number", async (req, res) => {
         l_status as status
         FROM 
         liquidation
-        left join cash_request cr on l.l_cr_reference_id = cr.cr_reference_id
+        left join cash_request cr on l_cr_reference_id = cr.cr_reference_id
         WHERE cr.cr_cv_number = ?
         ORDER BY l_created_date DESC
         `,
         [cv_number]
       );
       let result = await Select(select_liquidation_sql);
-      console.log(result)
       return res.status(200).json(DataModeling(result, "li_"));
     }
     await ProcessData();
@@ -254,7 +252,6 @@ router.get("/getliquidation_by_cv_number", async (req, res) => {
 
 router.get("/getapproved_liquidation", async (req, res) => {
   let { status, start_date, end_date } = req.query;
-  console.log(req.query)
   try {
         if (!start_date && !end_date) {
             start_date = '0000-01-01';
@@ -326,7 +323,6 @@ router.get("/getapproved_liquidation", async (req, res) => {
       );
 
       let result = await Select(select_liquidation_sql);
-console.log(result)
       emitLiquidationUpdate(req, "approved_fetched", {
         event: "liquidation_approved_fetched",
         status: "success",

@@ -97,13 +97,12 @@ router.get('/getred_flags_by_search', async (req, res) => {
                 ? parseInt(offset)
                 : 0;
         async function ProcessData() {
-            let select_district_sql;
+            let select_red_flags_sql;
 
             if (search && search.trim() !== "") {
-
                 const keyword = `%${search.replace(/'/g, "\\'")}%`;
 
-                select_district_sql = SelectStatement(
+                select_red_flags_sql = SelectStatement(
                     `SELECT
             rf_id as id,
             rf_liquidation_id as liquidation_id,
@@ -119,7 +118,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
             rf_status as status
            FROM red_flags
            WHERE
-             rf_liquidation_id LIKE ? OR 
+             (rf_liquidation_id LIKE ? OR 
              rf_liquidation_item_id LIKE ? OR
              rf_from LIKE ? OR
              rf_to LIKE ? OR
@@ -128,8 +127,8 @@ router.get('/getred_flags_by_search', async (req, res) => {
              rf_max_amount LIKE ? OR
              rf_amount LIKE ? OR
              rf_created_by LIKE ? OR
-             rf_created_date LIKE ? OR
-             rf_status LIKE ?
+             rf_created_date LIKE ?) AND
+             rf_status NOT IN ('MINIMUM', 'MAXIMUM')
            ORDER BY rf_created_date ASC
            LIMIT ${limitValue} OFFSET ${offsetValue}`,
                     [
@@ -138,7 +137,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
                     ]
                 );
             } else {
-                select_district_sql = SelectStatement(
+                select_red_flags_sql = SelectStatement(
                     `SELECT
             rf_id as id,
             rf_liquidation_id as liquidation_id,
@@ -153,19 +152,21 @@ router.get('/getred_flags_by_search', async (req, res) => {
             rf_created_date as created_date,
             rf_status as status
            FROM red_flags
+           WHERE
+             rf_status NOT IN ('MINIMUM', 'MAXIMUM')
            ORDER BY rf_created_date ASC
            LIMIT ${limitValue} OFFSET ${offsetValue}`
                 );
             }
 
-            let result = await Select(select_district_sql);
+            let result = await Select(select_red_flags_sql);
             console.log(result)
             return res.status(200).json(result);
         }
 
         await ProcessData();
     } catch (error) {
-        console.error("Error fetching districts:", error);
+        console.error("Error fetching red flags:", error);
         res.status(500).json(JsonResposeError(error));
     }
 });

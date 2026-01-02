@@ -202,6 +202,7 @@ router.get('/getliquidation_item_mode_of_transportation', async (req, res) => {
 router.get('/getliquidation_item_by_id', async (req, res) => {
         try {
                 const { id } = req.query;
+                
                 async function ProcessData() {
 
                         let select_liquidation_item_sql = SelectStatement(
@@ -255,7 +256,6 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
 
                                 finalResult.push({
                                         ...row,
-                                        //     is_red_flag: is_red_flag,
                                         status: status
                                 });
                         }
