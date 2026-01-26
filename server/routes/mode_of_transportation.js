@@ -30,57 +30,73 @@ router.get('/', function (req, res, next) {
 
 module.exports = router;
 
+
 router.get('/getmode_of_transportation', async (req, res) => {
     try {
-        async function ProcessData() {
-            let select_mode_of_transportation_sql = SelectStatement(
-                `SELECT
-                mmot_id as id,
-                mmot_name,
-                mmot_status
-                FROM master_mode_of_transportation
-                `
-            );
+        const { searchValue, offset, limit } = req.query;
+        console.log(req.query);
+        let limitValue =
+            limit && limit !== "0" && limit !== "-1" && limit !== ""
+                ? parseInt(limit)
+                : 999999;
+        let offsetValue =
+            offset && offset !== "0" && offset !== "-1" && offset !== ""
+                ? parseInt(offset)
+                : 0;
 
-            let mode_of_transportation_result = await Select(select_mode_of_transportation_sql);
+        if(searchValue && searchValue.trim() !== "") {
+            
+        } else {
+            
+        }
+        let select_mode_of_transportation_sql = SelectStatement(
+            `SELECT
+            mmot_id as id,
+            mmot_name as name,
+            mmot_status as status
+            FROM master_mode_of_transportation
+            ${searchValue ? `WHERE mmot_name LIKE ? OR mmot_status LIKE ?` : ''}
+            LIMIT ${limitValue} OFFSET ${offsetValue}`,
+            searchValue ? [
+                `%${searchValue}%`, `%${searchValue}%`
+            ] : []
+        );
 
-            emitNotificationUpdate(req, 'fetched', {
-                event: 'mode_of_transportation_fetched',
+        let mode_of_transportation_result = await Select(select_mode_of_transportation_sql);
+
+        emitNotificationUpdate(req, 'fetched', {
+            event: 'mode_of_transportation_fetched',
+            status: 'success',
+            count: mode_of_transportation_result.length,
+            timestamp: new Date().toISOString()
+        });
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('mode_of_transportation:fetched', {
                 status: 'success',
                 count: mode_of_transportation_result.length,
                 timestamp: new Date().toISOString()
             });
-
-            const io = req.app.get('io');
-            if (io) {
-                io.emit('mode_of_transportation:fetched', {
-                    status: 'success',
-                    count: mode_of_transportation_result.length,
-                    timestamp: new Date().toISOString()
-                });
-            }
-            return res.status(200).json({ mode_of_transportation_result });
         }
-
-        await ProcessData();
+        return res.status(200).json({ mode_of_transportation_result });
     } catch (error) {
-        console.error("Error during getmode_of_transportation:", error);
-        emitNotificationUpdate(req, 'error', {
-            event: 'mode_of_transportation_fetch_error',
-            status: 'error',
-            message: 'Failed to fetch mode_of_transportation',
-            error: error.message,
-            timestamp: new Date().toISOString()
+        console.error("Error fetching mode of transportation:", error);
+        return res.status(500).json({
+            code: error.code,
+            errno: error.errno,
+            sqlState: error.sqlState,
+            sqlMessage: error.sqlMessage,
+            sql: error.sql
         });
-        res.status(500).json(JsonResposeError(error));
     }
 });
 
 router.put('/update_mode_of_transportation', async (req, res) => {
     try {
         const { id, name, status } = req.body;
-
-        let update_red_flags_sql = UpdateStatement(
+        console.log("Request body:", req.body);
+        let update_mode_of_transportation_sql = UpdateStatement(
             Masters.master_mode_of_transportation.tablename,
             [Masters.master_mode_of_transportation.selectOptionsColumn.status,
                 Masters.master_mode_of_transportation.selectOptionsColumn.name
@@ -88,11 +104,13 @@ router.put('/update_mode_of_transportation', async (req, res) => {
             [Masters.master_mode_of_transportation.selectOptionsColumn.id]
         );
         let updateData = [[status, name, id]];
-        await Update(update_red_flags_sql, updateData);
+        console.log("Update data:", updateData);
+        console.log("Update SQL:", update_mode_of_transportation_sql);
+        await Update(update_mode_of_transportation_sql, updateData);
 
-        return res.status(200).json({ message: 'Red flags updated successfully' });
+        return res.status(200).json({ message: 'Mode of transportation updated successfully' });
     } catch (error) {
-        console.error("Error during update_red_flags:", error);
+        console.error("Error during update_mode_of_transportation:", error);
 
         res.status(500).json(JsonResposeError(error));
     }

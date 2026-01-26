@@ -1782,7 +1782,6 @@ module.exports = swaggerDocs;
  *         description: Internal server error
  */
 
-
 /**
  * @swagger
  * /liquidation/getliquidation_by_cv_number:
@@ -1833,7 +1832,6 @@ module.exports = swaggerDocs;
  *       500:
  *         description: Internal server error
  */
-
 
 /**
  * @swagger
@@ -2147,6 +2145,7 @@ module.exports = swaggerDocs;
  *                     - rt
  *                     - store_name
  *                     - particulars
+ *                     - reason
  *                     - from
  *                     - to
  *                     - mode_of_transportation
@@ -2163,6 +2162,9 @@ module.exports = swaggerDocs;
  *                       type: string
  *                       example: "ABC Supplies"
  *                     particulars:
+ *                       type: string
+ *                       example: "Printer ink"
+ *                     reason:
  *                       type: string
  *                       example: "Printer ink"
  *                     from:
@@ -2264,7 +2266,6 @@ module.exports = swaggerDocs;
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-
 
 /**
  * @swagger
@@ -3301,9 +3302,9 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
- * /red_flags/update_red_flags:
+ * /red_flags/update_red_flags_approval:
  *   put:
- *     summary: Update red flags data
+ *     summary: Update red flags approval status
  *     tags: [Red Flags]
  *     requestBody:
  *       required: true
@@ -3316,10 +3317,12 @@ module.exports = swaggerDocs;
  *                 type: integer
  *               status:
  *                 type: string
- *                 enum: ["MINIMUM", "MAXIMUM", " "]
+ *                 enum: ["PENDING", "APPLIED", "REJECTED"]
+ *               updated_by:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Successfully updated red flags data
+ *         description: Successfully updated red flags approval status
  *         content:
  *           application/json:
  *             schema:
@@ -3345,6 +3348,19 @@ module.exports = swaggerDocs;
  *   get:
  *     summary: Get mode of transportation data
  *     tags: [Mode of Transportation]
+ *     parameters:
+ *       - in: query
+ *         name: searchValue
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
  *         description: Successfully retrieved mode of transportation data
@@ -3357,6 +3373,8 @@ module.exports = swaggerDocs;
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/ModeOfTransportation'
+ *                 totalCount:
+ *                   type: integer
  */
 
 /**
@@ -3425,6 +3443,202 @@ module.exports = swaggerDocs;
  *               properties:
  *                 message:
  *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion
+
+//#region Purpose API Documentation
+/**
+ * @swagger
+ * /purpose/getpurpose:
+ *   get:
+ *     summary: Get purpose data
+ *     tags: [Purpose]
+ *     parameters:
+ *       - in: query
+ *         name: searchValue
+ *         schema:
+ *           type: string
+ *         description: Search query for filtering purposes
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *         description: Offset for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Limit for pagination
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Status for filtering purposes
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved purpose data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 purpose_result:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Purpose'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /purpose/update_purpose:
+ *   put:
+ *     summary: Update purpose data
+ *     tags: [Purpose]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *               code:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: ["ACTIVE", "INACTIVE"]
+ *     responses:
+ *       200:
+ *         description: Successfully updated purpose data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /purpose/create_purpose:
+ *   post:
+ *     summary: Create a new purpose
+ *     tags: [Purpose]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully created purpose
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+//#endregion
+
+//#region Reporting
+/**
+ * @swagger
+ * /reporting/get_region_city_province:
+ *   get:
+ *     summary: Get region and city/province statistics
+ *     description: Retrieves aggregated statistics for liquidation items grouped by region and city/province
+ *     tags:
+ *       - Reporting
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved region and city/province data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   region:
+ *                     type: string
+ *                     description: Region name
+ *                     example: "REGION I"
+ *                   city_province:
+ *                     type: string
+ *                     description: City or province name
+ *                     example: "ILOCOS NORTE"
+ *                   city_item_count:
+ *                     type: integer
+ *                     description: Count of items in the city/province
+ *                     example: 25
+ *                   city_total_amount:
+ *                     type: number
+ *                     description: Total amount for the city/province
+ *                     example: 15000.50
+ *                   region_item_count:
+ *                     type: integer
+ *                     description: Count of items in the region
+ *                     example: 100
+ *                   region_total_amount:
+ *                     type: number
+ *                     description: Total amount for the region
+ *                     example: 75000.00
+ *                   overall_item_count:
+ *                     type: integer
+ *                     description: Overall count of all items
+ *                     example: 500
+ *                   overall_total_amount:
+ *                     type: number
+ *                     description: Overall total amount
+ *                     example: 250000.00
  *       500:
  *         description: Internal Server Error
  *         content:

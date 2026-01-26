@@ -1,4 +1,13 @@
 var express = require("express");
+// const sharp = require("sharp");
+// const tesseract = require("tesseract.js");
+// let postal;
+// try {
+//   postal = require("node-postal");
+// } catch (error) {
+//   console.log("⚠️  node-postal not available, address parsing will be limited");
+//   postal = null;
+// }
 const {
   JsonResposeError,
   JsonResponseData,
@@ -28,13 +37,225 @@ const {
 const jwt = require("jsonwebtoken");
 var router = express.Router();
 const { DataModeling } = require("../repository/model/datamodeling");
-// Function to emit liquidation updates
+
 const emitLiquidationUpdate = (req, event, data) => {
   const io = req.app.get("io");
   if (io) {
     io.emit(`liquidation:${event}`, data);
   }
 };
+
+// const processReceiptImage = async (base64Image, imageIndex) => {
+//   try {
+//     console.log(`\n=== Processing Receipt Image ${imageIndex + 1} ===`);
+    
+//     const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, "");
+//     const imageBuffer = Buffer.from(base64Data, "base64");
+    
+//     console.log(`Image size: ${imageBuffer.length} bytes`);
+    
+//     const processedImage = await sharp(imageBuffer)
+//       .resize(2000, null, { 
+//         withoutEnlargement: true,
+//         fit: "inside"
+//       })
+//       .sharpen()
+//       .normalize()
+//       .png()
+//       .toBuffer();
+    
+//     console.log("Image processed with Sharp for OCR optimization");
+    
+//     const { data: { text } } = await tesseract.recognize(
+//       processedImage,
+//       'eng',
+//       {
+//         logger: (m) => {
+//           if (m.status === 'recognizing text') {
+//             console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+//           }
+//         }
+//       }
+//     );
+    
+//     console.log(`OCR Raw Text:\n${text}`);
+    
+//     const addressPatterns = [
+//       /Delivered to\s*\n\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*\d+x\s+)/gi,
+//       /Delivered to\s*\n\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*[A-Z][a-z]+\s+[A-Z])/gi,
+//       /Delivered to\s*\n\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Subtotal)/gi,
+//       /Delivered to\s*\n\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*Delivery)/gi,
+//       /(\d+\s+[\w\s]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|court|ct|way|place|pl|square|sq)\s*[\w\s]*,?\s*[\w\s]+,?\s*[\w\s]+)/gi,
+//       /(\d+\s+[\w\s]+\s+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|court|ct|way|place|pl|square|sq))/gi,
+//       /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*,\s*[A-Z]{2}\s*\d{5})/g,
+//     ];
+    
+//     let extractedAddress = null;
+//     for (const pattern of addressPatterns) {
+//       const matches = text.match(pattern);
+//       if (matches && matches.length > 0) {
+//         extractedAddress = matches[0].trim();
+//         console.log(`   Address pattern matched: ${pattern}`);
+//         console.log(`   Raw extracted address: ${extractedAddress}`);
+        
+//         const lines = extractedAddress.split('\n').map(line => line.trim()).filter(line => line);
+//         const cleanLines = [];
+        
+//         for (const line of lines) {
+//           if (/\d+x\s+/i.test(line) ||
+//               /^[A-Z][a-z]+\s+[A-Z][a-z]+\s+\d+\.?\d*$/.test(line) ||
+//               /\d+\.\d+$/.test(line)) {
+//             console.log(`   Skipping item description line: ${line}`);
+//             continue;
+//           }
+//           cleanLines.push(line);
+//         }
+        
+//         extractedAddress = cleanLines.join(', ').replace(/\s+/g, ' ').trim();
+        
+//         extractedAddress = extractedAddress
+//           .replace(/Bifian/gi, 'Biñan')
+//           .replace(/Binan/gi, 'Biñan')
+//           .replace(/Nia/gi, 'ñ')
+//           .replace(/Delivered to,?\s*/gi, '')
+//           .replace(/^\s*Delivered to\s*/i, '');
+        
+//         if (extractedAddress.length > 100 || extractedAddress.toLowerCase().includes('roasted') || extractedAddress.toLowerCase().includes('chicken')) {
+//           const deliveredToMatch = text.match(/Delivered to\s*\n\s*([^\n]+)/i);
+//           if (deliveredToMatch) {
+//             extractedAddress = deliveredToMatch[1].trim();
+//             extractedAddress = extractedAddress
+//               .replace(/Bifian/gi, 'Biñan')
+//               .replace(/Binan/gi, 'Biñan')
+//               .replace(/Nia/gi, 'ñ');
+//             console.log(`   Using simpler address extraction: ${extractedAddress}`);
+//           }
+//         }
+        
+//         if (postal) {
+//           try {
+//             const parsedAddress = postal.parse(extractedAddress);
+//             if (parsedAddress && parsedAddress.length > 0) {
+//               const standardizedAddress = postal.expandAddress(extractedAddress, { country: 'US' });
+//               extractedAddress = standardizedAddress || extractedAddress;
+//             }
+//           } catch (postalError) {
+//             console.log("⚠️  Address parsing with node-postal failed, using raw address");
+//           }
+//         }
+//         break;
+//       }
+//     }
+    
+//     const vatPatterns = [
+//       /Incl\.?\s*VAT\s*P\s*([\d,]+\.?\d*)/gi,
+//       /VAT\s*:?\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /Tax\s*:?\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /GST\s*:?\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /Sales\s+Tax\s*:?\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /(\d+\.?\d*)%\s*(?:VAT|Tax|GST|Sales\s+Tax)/gi,
+//       /VAT\s*(\d+\.?\d*)/gi,
+//       /Tax\s*(\d+\.?\d*)/gi,
+//       /Incl\.?\s*VAT\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /Including\s*VAT\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /VAT\s*included\s*([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /Incl\.?\s*VAT\s*\$?\s*([\d,]+\.?\d*)/gi,
+//       /Incl\.?\s*VAT\s*P\s*([\d,]+)1([\d]{2})/gi,
+//       /Incl\.?\s*VAT\s*([P$]?\s*[\d,]+)1([\d]{2})/gi,
+//       /VAT.*?([P$]?\s*[\d,]+\.?\d*)/gi,
+//       /Tax.*?([P$]?\s*[\d,]+\.?\d*)/gi,
+//     ];
+    
+//     let extractedVAT = null;
+//     for (const pattern of vatPatterns) {
+//       const matches = text.match(pattern);
+//       if (matches && matches.length > 0) {
+//         console.log(`   VAT pattern matched: ${pattern}`);
+//         console.log(`   VAT matches found: ${matches.join(', ')}`);
+        
+//         for (const match of matches) {
+//           let vatMatch = match.match(/([P$]?\s*[\d,]+\.?\d*)/);
+//           if (vatMatch) {
+//             let vatValue = vatMatch[1].replace(/[P$\s,]/g, '');
+            
+//             if (vatValue.length >= 4 && !vatValue.includes('.')) {
+//               const wholePart = vatValue.substring(0, vatValue.length - 2);
+//               const decimalPart = vatValue.substring(vatValue.length - 2);
+//               if (wholePart.length > 0 && decimalPart.length === 2) {
+//                 const correctedValue = wholePart + '.' + decimalPart;
+//                 const correctedVAT = parseFloat(correctedValue);
+//                 if (correctedVAT >= 1 && correctedVAT <= 99) {
+//                   vatValue = correctedValue;
+//                   console.log(`   Corrected misread decimal: ${vatValue}`);
+//                 }
+//               }
+//             }
+            
+//             const parsedVAT = parseFloat(vatValue);
+//             if (!isNaN(parsedVAT) && parsedVAT > 0 && parsedVAT < 1000) {
+//               extractedVAT = parsedVAT;
+//               console.log(`   Successfully extracted VAT: ${extractedVAT}%`);
+//               break;
+//             }
+//           }
+//         }
+//         if (extractedVAT) break;
+//       }
+//     }
+    
+//     const totalAmountPattern = [
+//       /Total\s*\(?\s*(?:incl\.?\s*VAT\s*(?:where\s*applicable)?\s*\)?)\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
+//       /Total\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
+//       /Subtotal\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
+//       /Amount\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
+//     ];
+    
+//     let totalAmount = null;
+//     for (const pattern of totalAmountPattern) {
+//       const matches = text.match(pattern);
+//       if (matches && matches.length > 0) {
+//         console.log(`   Total amount pattern matched: ${pattern}`);
+//         console.log(`   Total amount matches found: ${matches.join(', ')}`);
+        
+//         for (const match of matches) {
+//           const amountMatch = match.match(/([P$]?\s*[\d,]+\.?\d*)/);
+//           if (amountMatch) {
+//             const amountValue = amountMatch[1].replace(/[P$\s,]/g, '');
+//             const parsedAmount = parseFloat(amountValue);
+//             if (!isNaN(parsedAmount) && parsedAmount > 0) {
+//               totalAmount = parsedAmount;
+//               console.log(`   Successfully extracted total amount: ${totalAmount}`);
+//               break;
+//             }
+//           }
+//         }
+//         if (totalAmount) break;
+//       }
+//     }
+    
+//     console.log(`📧 Extracted Address: ${extractedAddress || 'Not found'}`);
+//     console.log(`🧾 Extracted VAT: ${extractedVAT ? extractedVAT + '%' : 'Not found'}`);
+//     console.log(`💰 Total Amount: ${totalAmount ? '$' + totalAmount : 'Not found'}`);
+//     console.log(`=== End Processing Receipt Image ${imageIndex + 1} ===\n`);
+    
+//     return {
+//       address: extractedAddress,
+//       vat: extractedVAT,
+//       totalAmount: totalAmount,
+//       rawText: text.substring(0, 500) + (text.length > 500 ? '...' : '')
+//     };
+    
+//   } catch (error) {
+//     console.error(`Error processing receipt image ${imageIndex + 1}:`, error.message);
+//     console.log(`=== Error Processing Receipt Image ${imageIndex + 1} ===\n`);
+//     return {
+//       address: null,
+//       vat: null,
+//       totalAmount: null,
+//       error: error.message
+//     };
+//   }
+// };
 
 /* GET liquidation page. */
 router.get("/", function (req, res, next) {
@@ -90,6 +311,7 @@ router.get("/getcash_liquidation", async (req, res) => {
                                 'rt', li.li_rt,
                                 'store', li.li_store_name,
                                 'particulars', li.li_particulars,
+                                'reason', li.li_reason,
                                 'from', li.li_from,
                                 'to', li.li_to,
                                 'mode_of_transportation', li.li_mode_of_transportation,
@@ -493,9 +715,8 @@ router.post("/create_liquidation", async (req, res) => {
       receipts,
       created_by,
     } = req.body;
-    console.log(req.body);
     let status = "PENDING";
-    let request_date = GetCurrentDatetime();
+    let request_date = GetCurrentDatetime();  
     let action = "PREPARED";
     let created_at = GetCurrentDatetime();
 
@@ -532,7 +753,6 @@ router.post("/create_liquidation", async (req, res) => {
       ];
 
       let missingToStores = [];
-      console.log(uniqueStores)
       uniqueStores.forEach((store) => {
         if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
           missingToStores.push(store);
@@ -583,7 +803,6 @@ router.post("/create_liquidation", async (req, res) => {
 
     const liquidationResult = await Insert(insertSql, liquidationData);
 
-    console.log(liquidationResult[0].id);
 
     const liquidation_id = liquidationResult[0].id;
 
@@ -626,6 +845,50 @@ router.post("/create_liquidation", async (req, res) => {
 
       await Insert(activityInsertSql, activityData);
 
+      // // Process receipt images to extract address and VAT information
+      // if (receipts && Array.isArray(receipts) && receipts.length > 0) {
+      //   console.log(`\n📸 Found ${receipts.length} receipt(s) to process for address and VAT extraction`);
+        
+      //   for (let i = 0; i < receipts.length; i++) {
+      //     const receipt = receipts[i];
+      //     let base64Data = null;
+          
+      //     // Handle both string format and object format
+      //     if (typeof receipt === 'string') {
+      //       // Receipt is a base64 string
+      //       base64Data = receipt;
+      //       console.log(`\n🔍 Processing receipt ${i + 1}/${receipts.length} (string format)`);
+      //     } else if (receipt && receipt.base64) {
+      //       // Receipt is an object with base64 property
+      //       base64Data = receipt.base64;
+      //       console.log(`\n🔍 Processing receipt ${i + 1}/${receipts.length} (object format)`);
+      //     } else {
+      //       console.log(`⚠️  Receipt ${i + 1} is missing base64 data or is invalid`);
+      //       console.log(`   Receipt type: ${typeof receipt}`);
+      //       console.log(`   Receipt content:`, receipt);
+      //       continue;
+      //     }
+          
+      //     if (base64Data) {
+      //       const extractedData = await processReceiptImage(base64Data, i);
+            
+      //       // Log the extracted information for verification
+      //       console.log(`✅ Receipt ${i + 1} Processing Complete:`);
+      //       console.log(`   - Address: ${extractedData.address || 'Not detected'}`);
+      //       console.log(`   - VAT: ${extractedData.vat ? extractedData.vat + '%' : 'Not detected'}`);
+      //       console.log(`   - Total Amount: ${extractedData.totalAmount ? '$' + extractedData.totalAmount : 'Not detected'}`);
+            
+      //       if (extractedData.error) {
+      //         console.log(`   - Error: ${extractedData.error}`);
+      //       }
+      //     }
+      //   }
+        
+      //   console.log(`\n🎉 All receipt images processed successfully!\n`);
+      // } else {
+      //   console.log(`\n📄 No receipts found or receipts array is empty\n`);
+      // }
+
       const insertedItems = [];
 
       const itemsData = [];
@@ -657,6 +920,7 @@ router.post("/create_liquidation", async (req, res) => {
           item.rt || "N/A",
           item.store_name || "N/A",
           item.particulars || "N/A",
+          item.reason || "N/A",
           cleanFrom,
           cleanTo,
           cleanMode,
@@ -1262,6 +1526,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       item.rt || "N/A",
       item.store_name || "N/A",
       item.particulars || "N/A",
+      item.reason || "N/A",
       item.from
         ? item.from.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
         : "N/A",

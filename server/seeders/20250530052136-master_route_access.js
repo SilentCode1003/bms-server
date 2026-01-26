@@ -1,5 +1,6 @@
 "use strict";
 //npx sequelize-cli db:seed --seed 20250530052136-master_route_access.js
+//npx sequelize-cli seed:generate --name master-route-access
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -45,6 +46,8 @@ module.exports = {
       "admin_reject_liquidations",
       "stores",
       "store_routes",
+      "transport",
+      "particulars"
     ];
 
     const adminExcluded = ["route_access", "dashboard", "generate_reports"];

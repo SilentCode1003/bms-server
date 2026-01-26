@@ -180,6 +180,8 @@ router.post("/createbulk_route_access", async (req, res) => {
             "finance_history",
             "stores",
             "store_routes",
+            "transport",
+            "particulars"
         ];
 
         for (let name of routeNames) {

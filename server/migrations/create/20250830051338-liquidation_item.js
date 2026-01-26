@@ -9,63 +9,59 @@ module.exports = {
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.createTable('red_flags', {
-      rf_id: {
+    await queryInterface.createTable('liquidation_item', {
+      li_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
+        allowNull: false,
       },
-      rf_liquidation_id: {
+      li_liquidation_id: {
         type: Sequelize.INTEGER,
+        allowNull: false,
         references: {
           model: 'liquidation',
           key: 'l_id',
         },
       },
-      rf_liquidation_item_id: {
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'liquidation_item',
-          key: 'li_id',
-        },
-      },
-      rf_from: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      rf_to: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      rf_mode_of_transportation: {
-        type: Sequelize.STRING(300),
-        allowNull: false,
-      },
-      rf_min_amount: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      rf_max_amount: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      rf_amount: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      rf_created_by: {
-        type: Sequelize.STRING(300),
-        allowNull: false,
-      },
-      rf_created_date: {
+      li_date: {
         type: Sequelize.STRING(20),
         allowNull: false,
       },
-      rf_status: {
-        type: Sequelize.ENUM('MINIMUM', 'MAXIMUM', ''),
+      li_rt: {
+        type: Sequelize.STRING(120),
+        allowNull: false,
+      },
+      li_store_name: {
+        type: Sequelize.STRING(120),
+        allowNull: true,
+      },
+      li_particulars: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      li_reason: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      li_from: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      li_to: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      li_mode_of_transportation: {
+        type: Sequelize.STRING(300),
+        allowNull: false,
+      },
+      li_amount: {
+        type: Sequelize.DECIMAL(10, 2),
         allowNull: false,
       },
     });
+
   },
 
   async down (queryInterface, Sequelize) {
@@ -75,6 +71,5 @@ module.exports = {
      * Example:
      * await queryInterface.dropTable('users');
      */
-    await queryInterface.dropTable('red_flags');
   }
 };
