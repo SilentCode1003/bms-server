@@ -1329,6 +1329,20 @@ router.put("/update_liquidation", async (req, res) => {
         );
         await Update(update_sql, data);
 
+        let select_liquidation_activity_sql = SelectStatement(
+          `SELECT lia_id FROM liquidation_activity 
+           WHERE lia_liquidation_id = ? AND lia_action != 'REJECTED'`,
+          [id]
+        );
+        let liquidation_activity = await Select(select_liquidation_activity_sql);
+        if(liquidation_activity.length > 0){
+          await Delete(
+            `DELETE FROM liquidation_activity 
+             WHERE lia_liquidation_id = ? AND lia_action = 'REJECTED'`,
+            [id]
+          );
+        }
+
         let activityData = [
           [id, "REJECTED", remarks || "", receipts, created_at, created_by],
         ];
@@ -1686,11 +1700,11 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       await Update(updateStatusSql, ["verified", 1, liquidation_id]);
     }
 
-    await Delete(
-      `DELETE FROM liquidation_activity 
-       WHERE lia_liquidation_id = ? AND lia_action != ?`,
-      [liquidation_id, 'PREPARED']
-    );
+    // await Delete(
+    //   `DELETE FROM liquidation_activity 
+    //    WHERE lia_liquidation_id = ? AND lia_action != ?`,
+    //   [liquidation_id, 'REJECTED']
+    // );
 
     emitLiquidationUpdate(req, "reopened", {
       event: "liquidation_reopened_after_rejection",
