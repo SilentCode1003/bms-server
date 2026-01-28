@@ -577,7 +577,7 @@ router.put("/updatecash_request", async (req, res) => {
           );
           let result = await Update(wallet_update_sql, [wallet_update_data]);
           if (result) {
-            console.log("success");
+            console.log("success", result);
           }
         } else {
           walletResult = [[employee_id, 0, amount]];

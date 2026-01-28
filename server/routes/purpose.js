@@ -127,8 +127,6 @@ router.put('/update_purpose', async (req, res) => {
             [Masters.master_purpose.selectOptionsColumn.id]
         );
         let updateData = [[code, name, type, description, status, id]];
-        console.log("Update data:", updateData);
-        console.log("Update SQL:", update_purpose_sql);
         await Update(update_purpose_sql, updateData);
 
         return res.status(200).json({ message: 'Purpose updated successfully' });
