@@ -1,5 +1,7 @@
 'use strict';
 //npx sequelize-cli db:seed --seed 20251127004322-master_mode_of_transportation.js
+//npx sequelize-cli seed:generate --name master-mode-of-transportation
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up (queryInterface, Sequelize) {

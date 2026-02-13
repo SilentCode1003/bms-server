@@ -157,8 +157,8 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
     headerRow.eachCell((cell, colNumber) => {
       headers[cell.value?.toString().trim()] = colNumber;
     });
-
-    const requiredCols = ["STORE NO", "STORE NAME", "CITY PROVINCE", "STATUS"];
+w
+    const requiredCols = ["STORE NO", "STORE NAME", "REGION", "CITY PROVINCE", "STATUS"];
     for (const col of requiredCols) {
       if (!headers[col]) {
         return res.status(400).json(JsonResposeError(`Missing column: ${col}`));
@@ -170,6 +170,7 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
       const row = ws.getRow(i);
       const store_no = row.getCell(headers["STORE NO"]).value;
       const store_name = row.getCell(headers["STORE NAME"]).value;
+      const region = row.getCell(headers["REGION"]).value;
       const city_province = row.getCell(headers["CITY PROVINCE"]).value;
       const status = row.getCell(headers["STATUS"]).value || "ACTIVE";
 
@@ -183,11 +184,11 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
         console.log(`Skipping duplicate store: ${store_no}`);
         continue;
       }
-      const insert_data = [[store_no, store_name, city_province, status]];
+      const insert_data = [[store_no, store_name, region, city_province, status]];
       const insert_sql = InsertStatement(
         "master_district",
         "md_",
-        ["store_number", "store_name", "city_province", "status"]
+        ["store_number", "store_name", "region", "city_province", "status"]
       );
 
       await Insert(insert_sql, insert_data);
@@ -195,6 +196,7 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
       importedRows.push({
         store_no,
         store_name,
+        region,
         city_province,
         status
       });

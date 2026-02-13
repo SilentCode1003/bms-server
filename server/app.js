@@ -23,6 +23,8 @@ var districtRouter = require('./routes/district');
 var notificationRouter = require('./routes/notification');
 var red_flagsRouter = require('./routes/red_flags');
 var mode_of_transportationRouter = require('./routes/mode_of_transportation');
+var purposeRouter = require('./routes/purpose');
+var reportingRouter = require('./routes/reporting');
 
 
 const verifyjwt  = require('./repository/middleware/authentication');
@@ -68,6 +70,8 @@ app.use('/district', districtRouter);
 app.use('/notification', notificationRouter);
 app.use('/red_flags', red_flagsRouter);
 app.use('/mode_of_transportation', mode_of_transportationRouter);
+app.use('/purpose', purposeRouter);
+app.use('/reporting', reportingRouter);
 
 app.use(function(req, res, next) {
   next(createError(404));
@@ -80,7 +84,9 @@ app.use(function(err, req, res, next) {
                       req.path.startsWith('/route_access/') ||
                       req.path.startsWith('/notification/') ||
                       req.path.startsWith('/red_flags/') ||
-                      req.path.startsWith('/mode_of_transportation/');
+                      req.path.startsWith('/mode_of_transportation/') ||
+                      req.path.startsWith('/purpose/') ||
+                      req.path.startsWith('/reporting/');
 
   if (isApiRequest) {
     return res.status(err.status || 500).json({

@@ -35,6 +35,7 @@ router.get('/getliquidation_item', async (req, res) => {
                                  MIN(li_rt) AS rt,
                                  MIN(li_store_name) AS store_name,
                                  MIN(li_particulars) AS particulars,
+                                 MIN(li_reason) AS reason,
                                  li_from AS started_from,
                                  li_to AS ended_to,
                                  li_mode_of_transportation AS mode_of_transportation,
@@ -202,6 +203,7 @@ router.get('/getliquidation_item_mode_of_transportation', async (req, res) => {
 router.get('/getliquidation_item_by_id', async (req, res) => {
         try {
                 const { id } = req.query;
+                
                 async function ProcessData() {
 
                         let select_liquidation_item_sql = SelectStatement(
@@ -210,11 +212,12 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
                                 li_liquidation_id AS liquidation_id,
                                 li_date AS date,
                                 li_rt AS rt,
-                                li_store_name AS store_name,
-                                li_particulars AS particulars,
-                                li_from AS started_from,
-                                li_to AS ended_to,
-                                li_mode_of_transportation,
+                                REPLACE(REPLACE(REPLACE(li_store_name, "'", ""), "<", ""), ">", "") AS store_name,
+                                REPLACE(REPLACE(REPLACE(li_particulars, "'", ""), "<", ""), ">", "") AS particulars,
+                                REPLACE(REPLACE(REPLACE(li_reason, "'", ""), "<", ""), ">", "") AS reason,
+                                REPLACE(REPLACE(REPLACE(li_from, "'", ""), "<", ""), ">", "") AS started_from,
+                                REPLACE(REPLACE(REPLACE(li_to, "'", ""), "<", ""), ">", "") AS ended_to,
+                                REPLACE(REPLACE(REPLACE(li_mode_of_transportation, "'", ""), "<", ""), ">", "") AS mode_of_transportation,
                                 li_amount AS amount
                                 FROM liquidation_item
                                 WHERE li_liquidation_id = ?`,
@@ -255,10 +258,10 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
 
                                 finalResult.push({
                                         ...row,
-                                        //     is_red_flag: is_red_flag,
                                         status: status
                                 });
                         }
+                        // console.log(finalResult)
                         return res.status(200).json(finalResult);
                 }
 
@@ -277,11 +280,12 @@ router.get('/getstore_routes', async (req, res) => {
                                 `WITH RECURSIVE route_chain AS (
                         SELECT 
                                 li_store_name,
-                                li_from,
-                                li_to,
+                                REPLACE(li_from, ' ', '') AS clean_from,
+                                REPLACE(li_to, ' ', '') AS clean_to,
                                 li_mode_of_transportation,
+                                REPLACE(li_mode_of_transportation, ' ', '') AS clean_mode_of_transportation,
                                 li_amount,
-                                CONCAT(li_from, '->', li_to) AS route_path,
+                                CONCAT(clean_from, '->', clean_to) AS route_path,
                                 1 AS step_order,
                                 li_to AS last_location
                         FROM liquidation_item li
@@ -296,11 +300,12 @@ router.get('/getstore_routes', async (req, res) => {
 
                         SELECT 
                                 li.li_store_name,
-                                li.li_from,
-                                li.li_to,
+                                REPLACE(li.li_from, ' ', '') AS clean_from,
+                                REPLACE(li.li_to, ' ', '') AS clean_to,
                                 li.li_mode_of_transportation,
+                                REPLACE(li.li_mode_of_transportation, ' ', '') AS clean_mode_of_transportation,
                                 li.li_amount,
-                                CONCAT(rc.route_path, '->', li.li_to),
+                                CONCAT(rc.route_path, '->', clean_to),
                                 rc.step_order + 1,
                                 li.li_to
                         FROM route_chain rc
@@ -315,7 +320,7 @@ router.get('/getstore_routes', async (req, res) => {
                                 li_store_name,
                                 route_path
                         FROM route_chain
-                        WHERE li_to = '${store_name}'
+                        WHERE clean_to = '${store_name}'
                         ),
 
                         route_usage AS (
@@ -324,7 +329,7 @@ router.get('/getstore_routes', async (req, res) => {
                                 COUNT(*) AS usage_count
                         FROM complete_routes cr
                         JOIN liquidation_item li
-                                ON cr.route_path LIKE CONCAT('%', li.li_from, '->', li.li_to, '%')
+                                ON cr.route_path LIKE CONCAT('%', clean_from, '->', clean_to, '%')
                         WHERE li.li_store_name = '${store_name}'
                         GROUP BY cr.route_path
                         ),
@@ -333,15 +338,15 @@ router.get('/getstore_routes', async (req, res) => {
                         SELECT DISTINCT
                                 rc.li_store_name,
                                 cr.route_path,
-                                rc.li_from,
-                                rc.li_to,
-                                rc.li_mode_of_transportation,
+                                rc.clean_from AS li_from,
+                                rc.clean_to AS li_to,
+                                rc.clean_mode_of_transportation AS li_mode_of_transportation,
                                 rc.li_amount,
                                 rc.step_order,
                                 ru.usage_count
                         FROM complete_routes cr
                         JOIN route_chain rc
-                                ON cr.route_path LIKE CONCAT('%', rc.li_from, '->', rc.li_to, '%')
+                                ON cr.route_path LIKE CONCAT('%', clean_from, '->', clean_to, '%')
                         JOIN route_usage ru
                                 ON ru.route_path = cr.route_path
                         ),
@@ -349,13 +354,13 @@ router.get('/getstore_routes', async (req, res) => {
                         amount_counts AS (
                         SELECT
                                 li_store_name,
-                                li_from,
-                                li_to,
+                                clean_from AS li_from,
+                                clean_to AS li_to,
                                 li_amount,
                                 COUNT(*) AS amount_count
                         FROM liquidation_item
                         WHERE li_store_name = '${store_name}'
-                        GROUP BY li_store_name, li_from, li_to, li_amount
+                        GROUP BY li_store_name, clean_from, clean_to, li_amount
                         )
 
                         SELECT 

@@ -2,32 +2,36 @@
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up (queryInterface, Sequelize) {
+  async up(queryInterface, Sequelize) {
     /**
      * Add altering commands here.
      *
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.createTable('master_district', {
-      md_id: {
+    await queryInterface.createTable('master_purpose', {
+      mp_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
       },
-      md_store_number: {
-        type: Sequelize.STRING(10),
+      mp_code: {
+        type: Sequelize.STRING(150),
         allowNull: false,
       },
-      md_store_name: {
-        type: Sequelize.STRING(100),
+      mp_name: {
+        type: Sequelize.STRING(300),
         allowNull: false,
       },
-      md_city_province: {
-        type: Sequelize.STRING(100),
+      mp_type: {
+        type: Sequelize.TEXT,
         allowNull: false,
       },
-      md_status: {
+      mp_description: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      mp_status: {
         type: Sequelize.ENUM('ACTIVE', 'INACTIVE'),
         allowNull: false,
       },
@@ -35,7 +39,7 @@ module.exports = {
 
   },
 
-  async down (queryInterface, Sequelize) {
+  async down(queryInterface, Sequelize) {
     /**
      * Add reverting commands here.
      *

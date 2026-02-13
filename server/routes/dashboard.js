@@ -285,7 +285,6 @@ router.get('/get_finance_charts', async (req, res) => {
 
             let request_status = await Select(select_request_status_sql);
 
-            // Emit socket event for the fetch
             emitDashboardUpdate(req, 'finance_charts_fetched', {
                 event: 'finance_charts_fetched',
                 status: 'success',
