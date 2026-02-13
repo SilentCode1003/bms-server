@@ -45,13 +45,13 @@ router.get('/getliquidation_activity', async (req, res) => {
                                 lia_receipts AS receipts,
                                 lia_created_at AS created_at,
                                 CASE
-                                        WHEN lia_action = 'PREPARED' THEN CONCAT('Prepared by: ', lia_created_by)
-                                        WHEN lia_action = 'NOTED' THEN CONCAT('Noted by: ', lia_created_by)
-                                        WHEN lia_action = 'CHECKED' THEN CONCAT('Checked by: ', lia_created_by)
-                                        WHEN lia_action = 'APPROVED' THEN CONCAT('Approved by: ', lia_created_by)
-                                        WHEN lia_action = 'INCOMPLETE' THEN CONCAT('Marked incomplete by: ', lia_created_by)
-                                        WHEN lia_action = 'REJECTED' THEN CONCAT('Rejected by: ', lia_created_by)
-                                        ELSE lia_created_by
+                                WHEN lia_action = 'PREPARED' THEN CONCAT('Prepared by: ', lia_created_by)
+                                WHEN lia_action = 'NOTED' THEN CONCAT('Noted by: ', lia_created_by)
+                                WHEN lia_action = 'CHECKED' THEN CONCAT('Checked by: ', lia_created_by)
+                                WHEN lia_action = 'APPROVED' THEN CONCAT('Approved by: ', lia_created_by)
+                                WHEN lia_action = 'INCOMPLETE' THEN CONCAT('Marked incomplete by: ', lia_created_by)
+                                WHEN lia_action = 'REJECTED' THEN CONCAT('Rejected by: ', lia_created_by)
+                                ELSE lia_created_by
                                 END AS name
                                 FROM liquidation_activity
                                 LIMIT ${limitValue} OFFSET ${offsetValue};

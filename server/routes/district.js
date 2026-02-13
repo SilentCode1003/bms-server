@@ -157,7 +157,7 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
     headerRow.eachCell((cell, colNumber) => {
       headers[cell.value?.toString().trim()] = colNumber;
     });
-w
+
     const requiredCols = ["STORE NO", "STORE NAME", "REGION", "CITY PROVINCE", "STATUS"];
     for (const col of requiredCols) {
       if (!headers[col]) {

@@ -1417,6 +1417,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       req.body;
     console.log(req.body);
     if (!liquidation_id) {
+      console.log("Missing liquidation_id");
       return res.status(400).json(JsonResposeError("Missing liquidation_id"));
     }
 
