@@ -47,7 +47,7 @@ module.exports = {
       "stores",
       "store_routes",
       "transport",
-      "particulars"
+      "particulars",
     ];
 
     const adminExcluded = ["route_access", "dashboard", "generate_reports"];

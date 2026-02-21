@@ -178,11 +178,20 @@ router.post("/createbulk_route_access", async (req, res) => {
             "revolving_fund",
             "cash_disbursement",
             "finance_history",
+            "red_tagging",
+            "final_approval",
+            "all_request",
+            "users",
+            "access",
+            "liquidation_form",
+            "admin_liquid_form",
+            "completed_liquidations",
+            "admin_reject_liquidations",
             "stores",
             "store_routes",
             "transport",
             "particulars"
-        ];
+        ].sort();
 
         for (let name of routeNames) {
             let select_duplicate = SelectStatement(`
