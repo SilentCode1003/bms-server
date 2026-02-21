@@ -32,10 +32,8 @@ router.get("/getroute_access", (req, res) => {
         async function ProcessData() {
             let select_sql = SelectAllStatement(
                 Masters.master_route_access.tablename,
-                Masters.master_route_access.selectColumns,
-                Masters.master_route_access.selectOptionsColumn.id,
+                Masters.master_route_access.selectColumns
             );
-
             let result = await Select(select_sql);
             res.status(200).json(JsonResponseData(DataModeling(result, Masters.master_route_access.prefix)));
         }
@@ -151,7 +149,11 @@ router.post("/createbulk_route_access", async (req, res) => {
 
         const routeNames = [
             "employee_request",
+            "approved_request",
+            "rejected_request",
             "employee_liquidation",
+            "liquidated_request",
+            "completed_request",
             "view_cash_request",
             "view_liquidation_form",
             "teamlead_pendings",
@@ -176,14 +178,10 @@ router.post("/createbulk_route_access", async (req, res) => {
             "revolving_fund",
             "cash_disbursement",
             "finance_history",
-            "final_approval",
-            "all_request",
-            "users",
-            "access",
-            "liquidation_form",
-            "admin_liquid_form",
-            "completed_liquidations",
-            "admin_reject_liquidations"
+            "stores",
+            "store_routes",
+            "transport",
+            "particulars"
         ];
 
         for (let name of routeNames) {

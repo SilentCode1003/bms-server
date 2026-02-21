@@ -4,57 +4,54 @@
 module.exports = {
   async up (queryInterface, Sequelize) {
     /**
-     * Add altering commands here.
+     * Add altering commands here.  
      *
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.createTable('liquidation_item', {
-      li_id: {
+    await queryInterface.createTable('liquidation', {
+      l_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
         allowNull: false,
       },
-      li_liquidation_id: {
-        type: Sequelize.INTEGER,
+      l_cr_reference_id: {
+        type: Sequelize.STRING(120),
         allowNull: false,
         references: {
-          model: 'liquidation',
-          key: 'l_id',
+          model: 'cash_request',
+          key: 'cr_reference_id',
         },
       },
-      li_date: {
-        type: Sequelize.STRING(20),
-        allowNull: false,
-      },
-      li_rt: {
-        type: Sequelize.STRING(120),
-        allowNull: false,
-      },
-      li_store_name: {
-        type: Sequelize.STRING(120),
-        allowNull: false,
-      },
-      li_particulars: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      li_from: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      li_to: {
-        type: Sequelize.TEXT,
-        allowNull: false,
-      },
-      li_mode_of_transportation: {
+      l_description: {
         type: Sequelize.STRING(300),
         allowNull: false,
       },
-      li_amount: {
+      l_amount_obtained: {
         type: Sequelize.DECIMAL(10, 2),
         allowNull: false,
+      },
+      l_amount_expended: {
+        type: Sequelize.DECIMAL(10, 2),
+        allowNull: false,
+      },
+      l_reimburse_return: {
+        type: Sequelize.DECIMAL(10, 2),
+        allowNull: false,
+      },
+      l_created_date: {
+        type: Sequelize.STRING(20),
+        allowNull: false,
+      },
+      l_status: {
+        type: Sequelize.ENUM('pending', 'approved', 'verified', 'completed', 'incomplete', 'rejected'),
+        allowNull: false,
+      },
+      l_notification: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
       },
     });
 

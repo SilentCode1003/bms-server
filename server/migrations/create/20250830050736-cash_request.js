@@ -56,6 +56,11 @@ module.exports = {
         allowNull: false,
         defaultValue: 'pending',
       },
+      cr_notification: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
     });
   },
 

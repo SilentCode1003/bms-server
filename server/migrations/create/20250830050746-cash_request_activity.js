@@ -4,52 +4,43 @@
 module.exports = {
   async up (queryInterface, Sequelize) {
     /**
-     * Add altering commands here.  
+     * Add altering commands here.
      *
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.createTable('liquidation', {
-      l_id: {
+    await queryInterface.createTable('cash_request_activity', {
+      cra_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
         allowNull: false,
       },
-      l_cr_reference_id: {
-        type: Sequelize.STRING(120),
+      cra_cash_request_id: {
+        type: Sequelize.INTEGER,
         allowNull: false,
         references: {
           model: 'cash_request',
-          key: 'cr_reference_id',
+          key: 'cr_id',
         },
       },
-      l_description: {
-        type: Sequelize.STRING(300),
+      cra_action: {
+        type: Sequelize.ENUM('REQUESTED','APPROVED','RECEIVED','REJECTED'),
         allowNull: false,
       },
-      l_amount_obtained: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
+      cra_remarks: {
+        type: Sequelize.TEXT,
+        allowNull: true,
       },
-      l_amount_expended: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      l_reimburse_return: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      l_created_date: {
+      cra_created_at: {
         type: Sequelize.STRING(20),
         allowNull: false,
       },
-      l_status: {
-        type: Sequelize.ENUM('pending', 'approved', 'verified', 'completed', 'rejected'),
+      cra_requested_by: {
+        type: Sequelize.STRING(120),
         allowNull: false,
       },
     });
-
   },
 
   async down (queryInterface, Sequelize) {

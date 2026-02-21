@@ -26,21 +26,37 @@ module.exports = router;
 
 router.get('/getcash_request_activity', async (req, res) => {
         try {
+                                const { offset, limit } = req.query;
+                let limitValue =
+                        limit && limit !== "0" && limit !== "-1" && limit !== ""
+                                ? parseInt(limit)
+                                : 999999;
+                let offsetValue =
+                        offset && offset !== "0" && offset !== "-1" && offset !== ""
+                                ? parseInt(offset)
+                                : 0;
                 async function ProcessData() {
                         let select_cash_request_activity_sql = SelectStatement(
                                 `SELECT
-                                cra_id as id,
-                                cra_cash_request_id as cash_request_id,
-                                cra_action as action,
-                                cra_remarks as remarks,
-                                cra_created_at as created_at,
-                                cra_requested_by as requested_by
+                                 cra_id AS id,
+                                 cra_cash_request_id AS cash_request_id,
+                                 cra_action AS action,
+                                 cra_remarks AS remarks,
+                                 cra_created_at AS created_at,
+                                 CASE
+                                     WHEN cra_action = 'REQUESTED' THEN CONCAT('Requested by: ', cra_requested_by)
+                                     WHEN cra_action = 'APPROVED' THEN CONCAT('Approved by: ', cra_requested_by)
+                                     WHEN cra_action = 'RECEIVED' THEN CONCAT('Received by: ', cra_requested_by)
+                                     WHEN cra_action = 'REJECTED' THEN CONCAT('Rejected by: ', cra_requested_by)
+                                ELSE cra_requested_by
+                                END AS name
                                 FROM cash_request_activity
+                                LIMIT ${limitValue} OFFSET ${offsetValue};
                                 `
                         );
 
                         let result = await Select(select_cash_request_activity_sql);
-
+console.log(result)
                         return res.status(200).json(result);
                 }
 

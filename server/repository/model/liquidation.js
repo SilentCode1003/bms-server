@@ -15,7 +15,7 @@ const Liquidations = {
             "amount_expended",
             "reimburse_return",
             "created_date",
-            "status",
+            "status"
         ],
         selectColumns: [
             "l_id",
@@ -26,6 +26,7 @@ const Liquidations = {
             "l_reimburse_return",
             "l_created_date",
             "l_status",
+            "l_notification",
         ],
         selectOptionsColumn: {
             id: "l_id",
@@ -36,6 +37,7 @@ const Liquidations = {
             reimburse_return: "l_reimburse_return",
             created_date: "l_created_date",
             status: "l_status",
+            notification: "l_notification",
         },
     },
     liquidation_item: {
@@ -47,6 +49,7 @@ const Liquidations = {
             "rt",
             "store_name",
             "particulars",
+            "reason",
             "from",
             "to",
             "mode_of_transportation",
@@ -59,6 +62,7 @@ const Liquidations = {
             "li_rt",
             "li_store_name",
             "li_particulars",
+            "li_reason",
             "li_from",
             "li_to",
             "li_mode_of_transportation",
@@ -71,6 +75,7 @@ const Liquidations = {
             rt: "li_rt",
             store_name: "li_store_name",
             particulars: "li_particulars",
+            reason: "li_reason",
             from: "li_from",
             to: "li_to",
             mode_of_transportation: "li_mode_of_transportation",

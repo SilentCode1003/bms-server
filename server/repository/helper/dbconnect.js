@@ -1,114 +1,90 @@
 const { query } = require("express");
-const { createPool } = require("mysql2/promise");
+const { createConnection } = require("mysql2");
 const { EncrypterString, DecrypterString } = require("./crytography");
 require("dotenv").config();
 
-console.log(EncrypterString("#Ebedaf19dd0d"));
+console.log(DecrypterString("783fc7623334122dc4942786859902af"));
 
-
-// Create a connection pool instead of a single connection
-const pool = createPool({
+const connection = createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: DecrypterString(process.env.DB_PASSWORD),
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
-  connectionLimit: 10,
-  waitForConnections: true,
-  queueLimit: 0
 });
 
-// Get a connection from the pool
-exports.getConnection = async () => {
-  return await pool.getConnection();
+exports.CheckConnection = () => {
+  return new Promise((resolve, reject) => {
+    connection.connect((err) => {
+      if (err) {
+        console.log("Error connecting to the database:", err);
+        reject(err);
+      } else {
+        console.log("Connected to the database!");
+        resolve(true);
+      }
+    });
+  });
 };
 
-exports.CheckConnection = async () => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.ping();
-    console.log("Connected to the database!");
-    return true;
-  } catch (error) {
-    console.error("Error connecting to the database:", error);
-    throw error;
-  } finally {
-    connection.release();
-  }
+exports.Select = (query) => {
+  return new Promise((resolve, reject) => {
+    connection.query(query, (err, result) => {
+      if (err) {
+        console.log("Error running query:", err);
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    });
+  });
 };
 
-// Transaction methods
-exports.beginTransaction = async () => {
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
-  return connection;
-};
-
-exports.commitTransaction = async (connection) => {
-  try {
-    await connection.commit();
-  } finally {
-    connection.release();
-  }
-};
-
-exports.rollbackTransaction = async (connection) => {
-  try {
-    await connection.rollback();
-  } finally {
-    connection.release();
-  }
-};
-
-exports.Select = async (query, params = []) => {
-  const connection = await pool.getConnection();
-  try {
-    const [rows] = await connection.query(query, params);
-    return rows;
-  } catch (error) {
-    console.error('Error in Select:', error);
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
-exports.Update = async (query, data) => {
-  const connection = await pool.getConnection();
-  try {
+exports.Update = (query, data) => {
+  return new Promise((resolve, reject) => {
     const flatData = Array.isArray(data[0]) ? data[0] : data;
-    const [result] = await connection.query(query, flatData);
-    return result.affectedRows;
-  } catch (error) {
-    console.error('Error in Update:', error);
-    throw error;
-  } finally {
-    connection.release();
-  }
+    
+    connection.query(query, flatData, (err, result) => {
+      if (err) {
+        console.log("Error running query:", err);
+        console.log("Query:", query);
+        console.log("Data:", flatData);
+        reject(err);
+      } else {
+        resolve(result.affectedRows);
+      }
+    });
+  });
 };
 
-exports.Insert = async (query, data) => {
-  const connection = await pool.getConnection();
-  try {
-    const [result] = await connection.query(query, [data]);
-    return { rows: result.affectedRows, id: result.insertId };
-  } catch (error) {
-    console.error('Error in Insert:', error);
-    throw error;
-  } finally {
-    connection.release();
-  }
+exports.Insert = (query, data) => {
+  return new Promise((resolve, reject) => {
+    connection.query(query, [data], (err, result) => {
+      if (err) {
+        console.log("Error running query:", err);
+        reject(err);
+      } else {
+        resolve([{ rows: result.affectedRows, id: result.insertId }]);
+      }
+    });
+  });
 };
 
-exports.Delete = async (query, params = []) => {
-  const connection = await pool.getConnection();
-  try {
-    const [result] = await connection.query(query, params);
-    return result.affectedRows;
-  } catch (error) {
-    console.error('Error in Delete:', error);
-    throw error;
-  } finally {
-    connection.release();
-  }
+
+exports.Delete = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    const flatParams = Array.isArray(params[0]) ? params[0] : params;
+
+    connection.query(query, flatParams, (err, result) => {
+      if (err) {
+        console.log("Error running query:", err);
+        console.log("Query:", query);
+        console.log("Params:", flatParams);
+        reject(err);
+      } else {
+        resolve(result.affectedRows);
+      }
+    });
+  });
 };
+

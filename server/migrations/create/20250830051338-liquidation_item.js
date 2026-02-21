@@ -9,38 +9,59 @@ module.exports = {
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.createTable('cash_request_activity', {
-      cra_id: {
+    await queryInterface.createTable('liquidation_item', {
+      li_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
         allowNull: false,
       },
-      cra_cash_request_id: {
+      li_liquidation_id: {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'cash_request',
-          key: 'cr_id',
+          model: 'liquidation',
+          key: 'l_id',
         },
       },
-      cra_action: {
-        type: Sequelize.ENUM('REQUESTED','APPROVED','RECEIVED','REJECTED'),
+      li_date: {
+        type: Sequelize.STRING(20),
         allowNull: false,
       },
-      cra_remarks: {
-        type: Sequelize.TEXT,
-        allowNull: true,
-      },
-      cra_created_at: {
-        type: Sequelize.DATE,
-        allowNull: false,
-      },
-      cra_requested_by: {
+      li_rt: {
         type: Sequelize.STRING(120),
         allowNull: false,
       },
+      li_store_name: {
+        type: Sequelize.STRING(120),
+        allowNull: true,
+      },
+      li_particulars: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      li_reason: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      li_from: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      li_to: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+      },
+      li_mode_of_transportation: {
+        type: Sequelize.STRING(300),
+        allowNull: false,
+      },
+      li_amount: {
+        type: Sequelize.DECIMAL(10, 2),
+        allowNull: false,
+      },
     });
+
   },
 
   async down (queryInterface, Sequelize) {
