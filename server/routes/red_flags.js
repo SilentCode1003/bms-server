@@ -136,7 +136,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
              rf_amount LIKE ? OR
              rf_created_by LIKE ? OR
              rf_created_date LIKE ? OR
-             rf_approval_status != 'APPLIED'
+             rf_approval_status = 'PENDING'
            ORDER BY rf_created_date ASC
            LIMIT ${limitValue} OFFSET ${offsetValue}`,
                     [
@@ -163,7 +163,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
             rf_updated_by as updated_by,
             rf_updated_date as updated_date
            FROM red_flags
-           WHERE rf_approval_status != 'APPLIED'
+           WHERE rf_approval_status = 'PENDING'
            ORDER BY rf_created_date ASC
            LIMIT ${limitValue} OFFSET ${offsetValue}`
                 );
