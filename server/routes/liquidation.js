@@ -1237,43 +1237,43 @@ router.put("/update_liquidation", async (req, res) => {
         let employee_id = await Select(select_emmployee_id);
         employee_id = employee_id[0]?.employee_id;
 
-        // let select_wallet_sql = SelectStatement(
-        //   `SELECT
-        //             mw_id as id,
-        //             mw_employee_id as employee_id,
-        //             mw_previous_amount as previous_amount,
-        //             mw_current_amount as current_amount
-        //             FROM master_wallet
-        //             WHERE mw_employee_id = "${employee_id}"`
-        // );
-        // let walletResult = await Select(select_wallet_sql);
-        // let { previous_amount, current_amount } = walletResult[0];
-        // console.log("Current and Previouse amount", previous_amount, current_amount)
+        let select_wallet_sql = SelectStatement(
+          `SELECT
+                    mw_id as id,
+                    mw_employee_id as employee_id,
+                    mw_previous_amount as previous_amount,
+                    mw_current_amount as current_amount
+                    FROM master_wallet
+                    WHERE mw_employee_id = "${employee_id}"`
+        );
+        let walletResult = await Select(select_wallet_sql);
+        let { previous_amount, current_amount } = walletResult[0];
+        console.log("Current and Previouse amount", previous_amount, current_amount)
 
-        // let wallet_data = [current_amount, 0, employee_id];
-        // let update_wallet_sql = UpdateStatement(
-        //   Masters.master_wallet.tablename,
-        //   [
-        //     Masters.master_wallet.selectOptionsColumn.previous_amount,
-        //     Masters.master_wallet.selectOptionsColumn.current_amount,
-        //   ],
-        //   [Masters.master_wallet.selectOptionsColumn.employee_id]
-        // );
-        // await Update(update_wallet_sql, [wallet_data]);
+        let wallet_data = [current_amount, 0, employee_id];
+        let update_wallet_sql = UpdateStatement(
+          Masters.master_wallet.tablename,
+          [
+            Masters.master_wallet.selectOptionsColumn.previous_amount,
+            Masters.master_wallet.selectOptionsColumn.current_amount,
+          ],
+          [Masters.master_wallet.selectOptionsColumn.employee_id]
+        );
+        await Update(update_wallet_sql, [wallet_data]);
 
-        // let wallet_activityData = [
-        //   [
-        //     walletResult[0]?.id,
-        //     `Updated wallet balance from:${previous_amount} to ${current_amount}`,
-        //     created_at,
-        //   ],
-        // ];
-        // let wallet_activity_insert_sql = InsertStatement(
-        //   Masters.master_wallet_activity.tablename,
-        //   Masters.master_wallet_activity.prefix,
-        //   Masters.master_wallet_activity.insertColumns
-        // );
-        // await Insert(wallet_activity_insert_sql, wallet_activityData);
+        let wallet_activityData = [
+          [
+            walletResult[0]?.id,
+            `Updated wallet balance from:${previous_amount} to ${current_amount}`,
+            created_at,
+          ],
+        ];
+        let wallet_activity_insert_sql = InsertStatement(
+          Masters.master_wallet_activity.tablename,
+          Masters.master_wallet_activity.prefix,
+          Masters.master_wallet_activity.insertColumns
+        );
+        await Insert(wallet_activity_insert_sql, wallet_activityData);
 
         emitLiquidationUpdate(req, "verified", {
           event: "liquidation_verified",
