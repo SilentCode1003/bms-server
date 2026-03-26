@@ -2683,6 +2683,38 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
+/**
+ * @swagger
+ * /liquidation_item/update_liquidation_item:
+ *   put:
+ *     summary: Update liquidation item
+ *     description: Update liquidation item details for a specific liquidation item.
+ *     tags:
+ *       - Liquidation Item
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 description: ID of the liquidation item being updated
+ *               particulars:
+ *                 type: string
+ *                 description: Item particulars
+ *     responses:
+ *       200:
+ *         description: Successfully updated liquidation item
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
 //#endregion
 
 //#region Liquidation Activity

@@ -603,7 +603,7 @@ router.put("/updatecash_request", async (req, res) => {
             Masters.master_wallet.prefix,
             Masters.master_wallet.insertColumns
           );
-          let walletResult = await Insert(wallet_insert_sql, [[employee_id, amount]]);
+          let walletResult = await Insert(wallet_insert_sql, [[employee_id, 0, amount]]);
 
           let wallet_id = walletResult[0].id;
 
