@@ -346,12 +346,12 @@ router.post("/createcash_request", async (req, res) => {
       return res.status(400).json(JsonResposeError("You have an active cash request. Please liquidate it before submitting a new one."));
     }
 
-    let wallet_insert_sql = InsertStatement(
-      Masters.master_wallet.tablename,
-      Masters.master_wallet.prefix,
-      Masters.master_wallet.insertColumns
-    );
-      await Insert(wallet_insert_sql, [[employee_id, 0, 0]]);
+    // let wallet_insert_sql = InsertStatement(
+    //   Masters.master_wallet.tablename,
+    //   Masters.master_wallet.prefix,
+    //   Masters.master_wallet.insertColumns
+    // );
+    // await Insert(wallet_insert_sql, [[employee_id, 0, 0]]);
 
 
     let status = "PENDING";
@@ -488,159 +488,177 @@ router.put("/undo_cash_request", async (req, res) => {
 router.put("/updatecash_request", async (req, res) => {
   try {
     const { status, id, remarks, updated_by, cash_voucher } = req.body;
+    console.log(req.body);
+    // if(req.body){
+    //   console.log("No data provided.")
+    //   return res.status(400).json({
+    //     message: "No data provided.",
+    //   });
+    // }
     let created_at = GetCurrentDatetime();
-
     if (!id || !status) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
-
-    // 1. Fetch current request details and status
-    let select_sql = SelectStatement(
-      `SELECT cr_employee_id, cr_amount, cr_status FROM cash_request WHERE cr_id = ?`,
+    let select_employee_id = SelectStatement(
+      `SELECT cr_employee_id, cr_amount FROM cash_request WHERE cr_id = ?`,
       [id]
     );
-    let select_result = await Select(select_sql);
-    
-    if (!select_result || select_result.length === 0) {
-      return res.status(404).json(JsonResposeError("Request not found"));
-    }
+    let select_employee_id_result = await Select(select_employee_id);
+    let employee_id =
+      select_employee_id_result[0]?.cr_employee_id ||
+      select_employee_id_result.cr_employee_id;
+    let amount =
+      select_employee_id_result[0]?.cr_amount ||
+      select_employee_id_result.cr_amount;
 
-    let current_db_status = select_result[0].cr_status;
-    let employee_id = select_result[0].cr_employee_id;
-    let amount = select_result[0].cr_amount;
-
-    // 2. SAFETY CHECK: Prevent double processing
-    // If the request is already completed, don't let it run again.
-    if (current_db_status === "completed" && status === "completed") {
-      return res.status(400).json(JsonResposeError("This request has already been completed."));
-    }
-
-    if (status === "approved") {
-      // Logic for Approval
-      let data = [status, 1, id];
-      let update_sql = UpdateStatement(
-        CashRequests.cash_request.tablename,
-        [
-          CashRequests.cash_request.selectOptionsColumn.status,
-          CashRequests.cash_request.selectOptionsColumn.notification,
-        ],
-        [CashRequests.cash_request.selectOptionsColumn.id]
-      );
-      await Update(update_sql, [data]);
-
-      let activityData = [[id, status, "APPROVED", created_at, updated_by]];
-      let activity_insert_sql = InsertStatement(
-        CashRequests.cash_request_activity.tablename,
-        CashRequests.cash_request_activity.prefix,
-        CashRequests.cash_request_activity.insertColumns
-      );
-      await Insert(activity_insert_sql, activityData);
-
-    } else if (status === "completed") {
-      // Update Main Request to Completed
-      let data = [status, 1, cash_voucher, id];
-      let update_sql = UpdateStatement(
-        CashRequests.cash_request.tablename,
-        [
-          CashRequests.cash_request.selectOptionsColumn.status,
-          CashRequests.cash_request.selectOptionsColumn.notification,
-          CashRequests.cash_request.selectOptionsColumn.cv_number,
-        ],
-        [CashRequests.cash_request.selectOptionsColumn.id]
-      );
-      await Update(update_sql, data);
-
-      // Log Activity
-      let activityData = [[id, "RECEIVED", "", created_at, updated_by]];
-      let activity_insert_sql = InsertStatement(
-        CashRequests.cash_request_activity.tablename,
-        CashRequests.cash_request_activity.prefix,
-        CashRequests.cash_request_activity.insertColumns
-      );
-      await Insert(activity_insert_sql, activityData);
-
-      // Handle Wallet Logic
-      let walletDataQuery = SelectStatement(
-        `SELECT * FROM master_wallet WHERE mw_employee_id = ?`,
-        [employee_id]
-      );
-      let walletResult = await Select(walletDataQuery);
-
-      if (walletResult.length > 0) {
-        let current_bal = Number(walletResult[0].mw_current_amount);
-        let new_bal = current_bal + Number(amount);
-
-        let wallet_update_data = [current_bal, new_bal, employee_id];
-        let wallet_update_sql = UpdateStatement(
-          Masters.master_wallet.tablename,
+    async function ProcessData() {
+      if (status === "approved") {
+        let data = [status, 1, id];
+        let update_sql = UpdateStatement(
+          CashRequests.cash_request.tablename,
           [
-            Masters.master_wallet.selectOptionsColumn.previous_amount,
-            Masters.master_wallet.selectOptionsColumn.current_amount,
+            CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification,
           ],
-          [Masters.master_wallet.selectOptionsColumn.employee_id]
+          [CashRequests.cash_request.selectOptionsColumn.id]
         );
-        
-        await Update(wallet_update_sql, [wallet_update_data]);
+        await Update(update_sql, [data]);
 
-        // Log Wallet Activity
-        let wallet_id = walletResult[0].mw_id;
-        let wallet_activityData = [
-          [wallet_id, `Updated wallet balance to ${new_bal}`, created_at],
+        let activityData = [[id, status, "APPROVED", created_at, updated_by]];
+        let activity_insert_sql = InsertStatement(
+          CashRequests.cash_request_activity.tablename,
+          CashRequests.cash_request_activity.prefix,
+          CashRequests.cash_request_activity.insertColumns
+        );
+        await Insert(activity_insert_sql, activityData);
+      } else if (status === "completed") {
+        let data = [status, 1, cash_voucher, id];
+        let update_sql = UpdateStatement(
+          CashRequests.cash_request.tablename,
+          [
+            CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification,
+            CashRequests.cash_request.selectOptionsColumn.cv_number,
+          ],
+          [CashRequests.cash_request.selectOptionsColumn.id]
+        );
+        await Update(update_sql, data);
+
+        let activityData = [[id, "RECEIVED", "", created_at, updated_by]];
+        let activity_insert_sql = InsertStatement(
+          CashRequests.cash_request_activity.tablename,
+          CashRequests.cash_request_activity.prefix,
+          CashRequests.cash_request_activity.insertColumns
+        );
+        await Insert(activity_insert_sql, activityData);
+
+        let select_cash_request = SelectStatement(
+          `SELECT
+            cr_department as department,
+            cr_description as particulars,
+            cr_cv_number as cash_voucher,
+            cr_amount as amount_issue
+            FROM cash_request
+            WHERE cr_id = ?
+          `,
+          [id]
+        );
+        let cash_request = await Select(select_cash_request);
+        let walletData = SelectStatement(
+          `SELECT * FROM master_wallet WHERE mw_employee_id = ?`,
+          [employee_id]
+        );
+        let walletResult = await Select(walletData);
+
+        // if (walletResult.length > 1) {
+        //   await Delete(
+        //     `DELETE FROM master_wallet WHERE mw_employee_id = ? LIMIT 1`,
+        //     [employee_id]
+        //   );
+        // }
+
+        if (walletResult.length > 0) {
+          let wallet_update_data = [
+            Number(walletResult[0]?.mw_current_amount),
+            Number(walletResult[0]?.mw_current_amount) + Number(amount),
+            employee_id,
+          ];
+          let wallet_update_sql = UpdateStatement(
+            Masters.master_wallet.tablename,
+            [
+              Masters.master_wallet.selectOptionsColumn.previous_amount,
+              Masters.master_wallet.selectOptionsColumn.current_amount,
+            ],
+            [Masters.master_wallet.selectOptionsColumn.employee_id]
+          );
+          let result = await Update(wallet_update_sql, [wallet_update_data]);
+          if (result) {
+            console.log("success", result);
+
+            let wallet_id = walletResult[0].mw_id;
+
+            let wallet_activityData = [
+              [wallet_id, `Updated wallet balance to ${Number(walletResult[0]?.mw_current_amount) + Number(amount)}`, created_at],
+            ];
+            let wallet_activity_insert_sql = InsertStatement(
+              Masters.master_wallet_activity.tablename,
+              Masters.master_wallet_activity.prefix,
+              Masters.master_wallet_activity.insertColumns
+            );
+            await Insert(wallet_activity_insert_sql, wallet_activityData);
+          }
+        } else {
+          let wallet_insert_sql = InsertStatement(
+            Masters.master_wallet.tablename,
+            Masters.master_wallet.prefix,
+            Masters.master_wallet.insertColumns
+          );
+          let walletResult = await Insert(wallet_insert_sql, [[employee_id, 0, amount]]);
+
+          let wallet_id = walletResult[0].id;
+
+          let wallet_activityData = [
+            [wallet_id, `Added new wallet balance ${amount}`, created_at],
+          ];
+          let wallet_activity_insert_sql = InsertStatement(
+            Masters.master_wallet_activity.tablename,
+            Masters.master_wallet_activity.prefix,
+            Masters.master_wallet_activity.insertColumns
+          );
+          await Insert(wallet_activity_insert_sql, wallet_activityData);
+
+        }
+
+        return res.status(200).json(cash_request);
+      } else if (status === "rejected") {
+        let data = [[status, 1, id]];
+        let update_sql = UpdateStatement(
+          CashRequests.cash_request.tablename,
+          [
+            CashRequests.cash_request.selectOptionsColumn.status,
+            CashRequests.cash_request.selectOptionsColumn.notification,
+          ],
+          [CashRequests.cash_request.selectOptionsColumn.id]
+        );
+        await Update(update_sql, data);
+
+        let activityData = [
+          [id, "REJECTED", remarks || "", created_at, updated_by],
         ];
-        let wallet_activity_insert_sql = InsertStatement(
-          Masters.master_wallet_activity.tablename,
-          Masters.master_wallet_activity.prefix,
-          Masters.master_wallet_activity.insertColumns
+        let activity_insert_sql = InsertStatement(
+          CashRequests.cash_request_activity.tablename,
+          CashRequests.cash_request_activity.prefix,
+          CashRequests.cash_request_activity.insertColumns
         );
-        await Insert(wallet_activity_insert_sql, wallet_activityData);
-      } else {
-        // Create new wallet if none exists
-        let wallet_insert_sql = InsertStatement(
-          Masters.master_wallet.tablename,
-          Masters.master_wallet.prefix,
-          Masters.master_wallet.insertColumns
-        );
-        let newWalletResult = await Insert(wallet_insert_sql, [[employee_id, 0, amount]]);
-        
-        // Log new wallet activity
-        let wallet_id = newWalletResult[0].id;
-        let wallet_activityData = [
-          [wallet_id, `Added new wallet balance ${amount}`, created_at],
-        ];
-        let wallet_act_sql = InsertStatement(
-          Masters.master_wallet_activity.tablename,
-          Masters.master_wallet_activity.prefix,
-          Masters.master_wallet_activity.insertColumns
-        );
-        await Insert(wallet_act_sql, wallet_activityData);
+        await Insert(activity_insert_sql, activityData);
       }
-    } else if (status === "rejected") {
-      let data = [[status, 1, id]];
-      let update_sql = UpdateStatement(
-        CashRequests.cash_request.tablename,
-        [
-          CashRequests.cash_request.selectOptionsColumn.status,
-          CashRequests.cash_request.selectOptionsColumn.notification,
-        ],
-        [CashRequests.cash_request.selectOptionsColumn.id]
-      );
-      await Update(update_sql, data);
-
-      let activityData = [[id, "REJECTED", remarks || "", created_at, updated_by]];
-      let activity_insert_sql = InsertStatement(
-        CashRequests.cash_request_activity.tablename,
-        CashRequests.cash_request_activity.prefix,
-        CashRequests.cash_request_activity.insertColumns
-      );
-      await Insert(activity_insert_sql, activityData);
+      res.status(200).json(JsonResponseSuccess());
     }
 
-    // Final response (Only one response per execution)
-    return res.status(200).json(JsonResponseSuccess());
-
+    await ProcessData();
   } catch (error) {
-    console.error("Error updating cash request:", error);
-    return res.status(500).json(JsonResposeError(error));
+    console.log(error);
+    res.status(500).json(JsonResposeError(error));
   }
 });
 
