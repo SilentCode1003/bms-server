@@ -1228,6 +1228,8 @@ router.put("/update_liquidation", async (req, res) => {
         );
         let liquidation = await Select(select_liquidation);
 
+        let { amount_issued, amount_expended, amount_reimburse, amount_return, cash_voucher } = liquidation[0];
+
         let select_emmployee_id = SelectStatement(
           `SELECT
                     cr_employee_id as employee_id
@@ -1264,7 +1266,7 @@ router.put("/update_liquidation", async (req, res) => {
         let wallet_activityData = [
           [
             walletResult[0]?.id,
-            `Updated wallet balance from:${previous_amount} to ${current_amount}`,
+            `Updated wallet balance in liquidation from:${current_amount} to 0, ${amount_issued} issued, ${amount_expended} expended, ${amount_reimburse} reimbursed, ${amount_return} returned`,
             created_at,
           ],
         ];

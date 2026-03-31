@@ -581,6 +581,7 @@ router.put("/updatecash_request", async (req, res) => {
           let wallet_update_data = [
             Number(walletResult[0]?.mw_current_amount),
             Number(walletResult[0]?.mw_current_amount) + Number(amount),
+            Number(walletResult[0]?.mw_previous_amount),
             employee_id,
           ];
           let wallet_update_sql = UpdateStatement(
@@ -598,7 +599,7 @@ router.put("/updatecash_request", async (req, res) => {
             let wallet_id = walletResult[0].mw_id;
 
             let wallet_activityData = [
-              [wallet_id, `Updated wallet balance to ${Number(walletResult[0]?.mw_current_amount) + Number(amount)}`, created_at],
+              [wallet_id, `Updated wallet balance from cash request to ${Number(walletResult[0]?.mw_current_amount) + Number(amount)} from ${walletResult[0]?.mw_current_amount} previously as ${walletResult[0]?.mw_previous_amount}`, created_at],
             ];
             let wallet_activity_insert_sql = InsertStatement(
               Masters.master_wallet_activity.tablename,
@@ -618,7 +619,7 @@ router.put("/updatecash_request", async (req, res) => {
           let wallet_id = walletResult[0].id;
 
           let wallet_activityData = [
-            [wallet_id, `Added new wallet balance ${amount}`, created_at],
+            [wallet_id, `Added new wallet balance from cash request ${amount}`, created_at],
           ];
           let wallet_activity_insert_sql = InsertStatement(
             Masters.master_wallet_activity.tablename,

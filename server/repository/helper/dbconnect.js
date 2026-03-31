@@ -3,7 +3,7 @@ const { createConnection } = require("mysql2");
 const { EncrypterString, DecrypterString } = require("./crytography");
 require("dotenv").config();
 
-console.log(DecrypterString("783fc7623334122dc4942786859902af"));
+console.log(DecrypterString("5798a1949837ae45232afc19732fc599"));
 
 const connection = createConnection({
   host: process.env.DB_HOST,
