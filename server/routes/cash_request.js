@@ -576,7 +576,6 @@ router.put("/updatecash_request", async (req, res) => {
         //     [employee_id]
         //   );
         // }
-
         if (walletResult.length > 0) {
           let wallet_update_data = [
             Number(walletResult[0]?.mw_current_amount),
@@ -593,8 +592,6 @@ router.put("/updatecash_request", async (req, res) => {
             [Masters.master_wallet.selectOptionsColumn.employee_id]
           );
           let result = await Update(wallet_update_sql, [wallet_update_data]);
-          if (result) {
-            console.log("success", result);
 
             let wallet_id = walletResult[0].mw_id;
 
@@ -607,7 +604,7 @@ router.put("/updatecash_request", async (req, res) => {
               Masters.master_wallet_activity.insertColumns
             );
             await Insert(wallet_activity_insert_sql, wallet_activityData);
-          }
+
         } else {
           let wallet_insert_sql = InsertStatement(
             Masters.master_wallet.tablename,
