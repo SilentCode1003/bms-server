@@ -579,8 +579,7 @@ router.put("/updatecash_request", async (req, res) => {
         if (walletResult.length > 0) {
           let wallet_update_data = [
             Number(walletResult[0]?.mw_current_amount),
-            Number(walletResult[0]?.mw_current_amount) + Number(amount),
-            Number(walletResult[0]?.mw_previous_amount),
+            Number(amount),
             employee_id,
           ];
           let wallet_update_sql = UpdateStatement(
@@ -624,7 +623,6 @@ router.put("/updatecash_request", async (req, res) => {
             Masters.master_wallet_activity.insertColumns
           );
           await Insert(wallet_activity_insert_sql, wallet_activityData);
-
         }
 
         return res.status(200).json(cash_request);
