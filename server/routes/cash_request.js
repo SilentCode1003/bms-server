@@ -311,7 +311,7 @@ router.post("/createcash_request", async (req, res) => {
       amount,
       requested_by,
     } = req.body;
-console.log(req.body)
+    console.log(req.body)
     if (
       !description ||
       !team_lead ||
@@ -324,26 +324,35 @@ console.log(req.body)
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
-        // if(req.body){
+    // if(req.body){
     //   console.log("No data provided.")
     //   return res.status(400).json({
     //     message: "No data provided.",
     //   });
     // }
+
     let select_liquidation_sql = "";
-      select_liquidation_sql = SelectStatement(
-        `SELECT cr_id
+    select_liquidation_sql = SelectStatement(
+      `SELECT cr_id
         FROM cash_request
         LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
         WHERE cr_employee_id = ?
-        AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected'))`,
-        [employee_id]
-      );
+        AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected', 'incomplete'))`,
+      [employee_id]
+    );
 
-      let result2 = await Select(select_liquidation_sql);
-      if (result2.length > 0) {
-        return res.status(400).json(JsonResposeError("You cannot create a new cash request"));
-      }
+    let result2 = await Select(select_liquidation_sql);
+    if (result2.length > 0) {
+      return res.status(400).json(JsonResposeError("You have an active cash request. Please liquidate it before submitting a new one."));
+    }
+
+    // let wallet_insert_sql = InsertStatement(
+    //   Masters.master_wallet.tablename,
+    //   Masters.master_wallet.prefix,
+    //   Masters.master_wallet.insertColumns
+    // );
+    // await Insert(wallet_insert_sql, [[employee_id, 0, 0]]);
+
 
     let status = "PENDING";
     let request_date = GetCurrentDatetime();
@@ -480,7 +489,7 @@ router.put("/updatecash_request", async (req, res) => {
   try {
     const { status, id, remarks, updated_by, cash_voucher } = req.body;
     console.log(req.body);
-            // if(req.body){
+    // if(req.body){
     //   console.log("No data provided.")
     //   return res.status(400).json({
     //     message: "No data provided.",
@@ -561,10 +570,16 @@ router.put("/updatecash_request", async (req, res) => {
         );
         let walletResult = await Select(walletData);
 
+        // if (walletResult.length > 1) {
+        //   await Delete(
+        //     `DELETE FROM master_wallet WHERE mw_employee_id = ? LIMIT 1`,
+        //     [employee_id]
+        //   );
+        // }
         if (walletResult.length > 0) {
           let wallet_update_data = [
             Number(walletResult[0]?.mw_current_amount),
-            Number(walletResult[0]?.mw_current_amount) + Number(amount),
+            Number(amount),
             employee_id,
           ];
           let wallet_update_sql = UpdateStatement(
@@ -576,29 +591,39 @@ router.put("/updatecash_request", async (req, res) => {
             [Masters.master_wallet.selectOptionsColumn.employee_id]
           );
           let result = await Update(wallet_update_sql, [wallet_update_data]);
-          if (result) {
-            console.log("success", result);
-          }
+
+            let wallet_id = walletResult[0].mw_id;
+
+            let wallet_activityData = [
+              [wallet_id, `Updated wallet balance from cash request to ${Number(walletResult[0]?.mw_current_amount) + Number(amount)} from ${walletResult[0]?.mw_current_amount} previously as ${walletResult[0]?.mw_previous_amount}`, created_at],
+            ];
+            let wallet_activity_insert_sql = InsertStatement(
+              Masters.master_wallet_activity.tablename,
+              Masters.master_wallet_activity.prefix,
+              Masters.master_wallet_activity.insertColumns
+            );
+            await Insert(wallet_activity_insert_sql, wallet_activityData);
+
         } else {
-          walletResult = [[employee_id, 0, amount]];
           let wallet_insert_sql = InsertStatement(
             Masters.master_wallet.tablename,
             Masters.master_wallet.prefix,
             Masters.master_wallet.insertColumns
           );
-          await Insert(wallet_insert_sql, walletResult);
-        }
-        let wallet_id = walletResult[0]?.id || walletResult.id;
+          let walletResult = await Insert(wallet_insert_sql, [[employee_id, 0, amount]]);
 
-        let wallet_activityData = [
-          [wallet_id, `Added new wallet balance ${amount}`, created_at],
-        ];
-        let wallet_activity_insert_sql = InsertStatement(
-          Masters.master_wallet_activity.tablename,
-          Masters.master_wallet_activity.prefix,
-          Masters.master_wallet_activity.insertColumns
-        );
-        await Insert(wallet_activity_insert_sql, wallet_activityData);
+          let wallet_id = walletResult[0].id;
+
+          let wallet_activityData = [
+            [wallet_id, `Added new wallet balance from cash request ${amount}`, created_at],
+          ];
+          let wallet_activity_insert_sql = InsertStatement(
+            Masters.master_wallet_activity.tablename,
+            Masters.master_wallet_activity.prefix,
+            Masters.master_wallet_activity.insertColumns
+          );
+          await Insert(wallet_activity_insert_sql, wallet_activityData);
+        }
 
         return res.status(200).json(cash_request);
       } else if (status === "rejected") {
@@ -634,78 +659,78 @@ router.put("/updatecash_request", async (req, res) => {
 });
 
 router.put("/update_cash_request_rejected", async (req, res) => {
-        try {
-            const { cash_request_id, date, description, team_lead, amount, updated_by } = req.body;
-            if (!cash_request_id) {
-                return res.status(400).json(JsonResposeError("Missing cash_request_id"));
-            }
-    
-            let updateData = [];
-            let updateFields = [];
-            
-            if (date !== undefined) {
-                updateData.push(date);
-                updateFields.push("cr_date = ?");
-            }
-            
-            if (description !== undefined) {
-                updateData.push(description);
-                updateFields.push("cr_description = ?");
-            }
-            
-            if (team_lead !== undefined) {
-                updateData.push(team_lead);
-                updateFields.push("cr_team_lead = ?");
-            }
-            
-            if (amount !== undefined) {
-                updateData.push(parseFloat(amount));
-                updateFields.push("cr_amount = ?");
-            }
-    
-            if (updateData.length === 0) {
-                return res.status(400).json(JsonResposeError("No fields to update"));
-            }
+  try {
+    const { cash_request_id, date, description, team_lead, amount, updated_by } = req.body;
+    if (!cash_request_id) {
+      return res.status(400).json(JsonResposeError("Missing cash_request_id"));
+    }
 
-            updateData.push(1);
-            updateFields.push("cr_notification = ?");
-    
-            updateData.push(cash_request_id);
-    
-            let updateQuery = `UPDATE cash_request SET ${updateFields.join(", ")}, cr_status = 'PENDING' WHERE cr_id = ?`;
-            
-            await Update(updateQuery, updateData);
+    let updateData = [];
+    let updateFields = [];
 
-            await Delete(
-                `DELETE FROM cash_request_activity 
+    if (date !== undefined) {
+      updateData.push(date);
+      updateFields.push("cr_date = ?");
+    }
+
+    if (description !== undefined) {
+      updateData.push(description);
+      updateFields.push("cr_description = ?");
+    }
+
+    if (team_lead !== undefined) {
+      updateData.push(team_lead);
+      updateFields.push("cr_team_lead = ?");
+    }
+
+    if (amount !== undefined) {
+      updateData.push(parseFloat(amount));
+      updateFields.push("cr_amount = ?");
+    }
+
+    if (updateData.length === 0) {
+      return res.status(400).json(JsonResposeError("No fields to update"));
+    }
+
+    updateData.push(1);
+    updateFields.push("cr_notification = ?");
+
+    updateData.push(cash_request_id);
+
+    let updateQuery = `UPDATE cash_request SET ${updateFields.join(", ")}, cr_status = 'PENDING' WHERE cr_id = ?`;
+
+    await Update(updateQuery, updateData);
+
+    await Delete(
+      `DELETE FROM cash_request_activity 
                 WHERE cra_cash_request_id = ? AND cra_action IN ('REQUESTED', 'APPROVED', 'RECEIVED', 'REJECTED')`,
-                [cash_request_id]
-            );
-    
-            const activityData = [
-                [
-                    cash_request_id,
-                    "REQUESTED",
-                    "Cash request was updated after rejection",
-                    GetCurrentDatetime(),
-                    updated_by
-                ]
-            ];
-    
-            const activityInsertSql = InsertStatement(
-                CashRequests.cash_request_activity.tablename,
-                CashRequests.cash_request_activity.prefix,
-                CashRequests.cash_request_activity.insertColumns
-            );
-    
-            await Insert(activityInsertSql, activityData);
-    
+      [cash_request_id]
+    );
 
-            res.status(200).json(JsonResponseSuccess());
-        } catch (error) {
-            console.error("Error in update_cash_request_rejected:", error);
-            res.status(500).json(JsonResposeError(error));
-        }
+    const activityData = [
+      [
+        cash_request_id,
+        "REQUESTED",
+        "Cash request was updated after rejection",
+        GetCurrentDatetime(),
+        updated_by
+      ]
+    ];
+
+    const activityInsertSql = InsertStatement(
+      CashRequests.cash_request_activity.tablename,
+      CashRequests.cash_request_activity.prefix,
+      CashRequests.cash_request_activity.insertColumns
+    );
+
+    await Insert(activityInsertSql, activityData);
+
+
+    res.status(200).json(JsonResponseSuccess());
+  } catch (error) {
+    console.error("Error in update_cash_request_rejected:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
 });
 
 router.put("/updatecash_request_notification", async (req, res) => {

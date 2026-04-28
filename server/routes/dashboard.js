@@ -626,7 +626,6 @@ let select_location_expenses_sql = SelectStatement(`
 
     let location_result = await Select(select_location_expenses_sql);
 
-    // Emit socket event for the fetch
     emitDashboardUpdate(req, 'store_location_expenses_fetched', {
       event: 'store_location_expenses_fetched',
       status: 'success',

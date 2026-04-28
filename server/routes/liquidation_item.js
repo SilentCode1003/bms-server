@@ -203,7 +203,7 @@ router.get('/getliquidation_item_mode_of_transportation', async (req, res) => {
 router.get('/getliquidation_item_by_id', async (req, res) => {
         try {
                 const { id } = req.query;
-                
+
                 async function ProcessData() {
 
                         let select_liquidation_item_sql = SelectStatement(
@@ -391,6 +391,29 @@ router.get('/getstore_routes', async (req, res) => {
                 await ProcessData();
         } catch (error) {
                 console.error("Error fetching store routes:", error);
+                res.status(500).json(JsonResposeError(error));
+        }
+});
+
+router.put("/update_liquidation_item", async (req, res) => {
+        try {
+                const { id, particulars } = req.body;
+                console.log(req.body);
+                if (!id || particulars === undefined) {
+                        return res.status(400).json(JsonResposeError("Missing required fields"));
+                }
+
+                let updateData = [particulars, id];
+                let update_liquidation_sql = UpdateStatement(
+                        Liquidations.liquidation_item.tablename,
+                        [Liquidations.liquidation_item.selectOptionsColumn.particulars],
+                        [Liquidations.liquidation_item.selectOptionsColumn.id]
+                );
+                await Update(update_liquidation_sql, [updateData]);
+
+                res.status(200).json(JsonResponseSuccess());
+        } catch (error) {
+                console.error("Error in update_liquidation_notification:", error);
                 res.status(500).json(JsonResposeError(error));
         }
 });

@@ -34,7 +34,6 @@ router.get('/', function (req, res, next) {
 
 module.exports = router;
 
-
 router.get('/get_region_city_province', async (req, res) => {
   try {
     let select_region_city_province = SelectStatement(`

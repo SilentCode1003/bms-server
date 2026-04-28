@@ -136,7 +136,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
              rf_amount LIKE ? OR
              rf_created_by LIKE ? OR
              rf_created_date LIKE ? OR
-             rf_approval_status != 'APPLIED'
+             rf_approval_status = 'PENDING'
            ORDER BY rf_created_date ASC
            LIMIT ${limitValue} OFFSET ${offsetValue}`,
                     [
@@ -163,7 +163,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
             rf_updated_by as updated_by,
             rf_updated_date as updated_date
            FROM red_flags
-           WHERE rf_approval_status != 'APPLIED'
+           WHERE rf_approval_status = 'PENDING'
            ORDER BY rf_created_date ASC
            LIMIT ${limitValue} OFFSET ${offsetValue}`
                 );
@@ -182,7 +182,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
 router.put('/update_red_flags_approval', async (req, res) => {
     try {
         const { id, status, updated_by } = req.body;
-        console.log(id)
+        console.log(req.body)
         let currentDate = GetCurrentDate();
 
         if (status === "APPLIED") {
@@ -193,7 +193,9 @@ router.put('/update_red_flags_approval', async (req, res) => {
             );
             let approved_red_flags_result = await Select(select_approved_red_flags_sql);
             const { rf_id, rf_from, rf_to, rf_mode_of_transportation, rf_amount, rf_status } = approved_red_flags_result[0];
-
+            console.log("from", rf_from)
+            console.log("to", rf_to)
+            console.log("mode_of_transportation", rf_mode_of_transportation)
             let select_red_flag_sql = SelectStatement(
                 `SELECT
                 rf_id
@@ -204,11 +206,33 @@ router.put('/update_red_flags_approval', async (req, res) => {
             );
 
             let select_red_flag_result = await Select(select_red_flag_sql);
+            
+            if (select_red_flag_result.length > 0) {
+                let red_flag_id = select_red_flag_result[0].rf_id;
+
+                console.log("redflag_id", select_red_flag_result);
 
 
-            let red_flag_id = select_red_flag_result[0].rf_id;
+                let update_red_flag_pending_sql = UpdateStatement(
+                    Masters.red_flags.tablename,
+                    [
+                        Masters.red_flags.selectOptionsColumn.approval_status,
+                        Masters.red_flags.selectOptionsColumn.updated_by,
+                        Masters.red_flags.selectOptionsColumn.updated_date,
+                    ],
+                    [
+                        Masters.red_flags.selectOptionsColumn.id
+                    ]
+                );
 
-            console.log("redflag_id", select_red_flag_result);
+                let update_red_flag_pendingData = [
+                    ['PENDING', updated_by, currentDate, red_flag_id]
+                ];
+
+                await Update(update_red_flag_pending_sql, update_red_flag_pendingData);
+
+            }
+
 
             let update_apllied_red_flags_sql = UpdateStatement(
                 Masters.red_flags.tablename,
@@ -227,23 +251,8 @@ router.put('/update_red_flags_approval', async (req, res) => {
 
             let update_apllied_red_flags_result = await Update(update_apllied_red_flags_sql, update_apllied_red_flagsData);
             console.log("update_apllied_red_flagsData", update_apllied_red_flags_result);
-            let update_red_flag_pending_sql = UpdateStatement(
-                Masters.red_flags.tablename,
-                [
-                    Masters.red_flags.selectOptionsColumn.approval_status,
-                    Masters.red_flags.selectOptionsColumn.updated_by,
-                    Masters.red_flags.selectOptionsColumn.updated_date,
-                ],
-                [
-                    Masters.red_flags.selectOptionsColumn.id
-                ]
-            );
 
-            let update_red_flag_pendingData = [
-                ['PENDING', updated_by, currentDate, red_flag_id]
-            ];
 
-            await Update(update_red_flag_pending_sql, update_red_flag_pendingData);
 
             if (rf_status === "MAXIMUM") {
                 console.log("MAXIMUM");
