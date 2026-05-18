@@ -93,24 +93,15 @@ router.get('/get_finance_cards', async (req, res) => {
                 (SELECT SUM(l.l_amount_expended + l.l_reimburse_return) 
                  FROM liquidation l 
                  INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id 
-                 WHERE l.l_status = 'verified' 
-                 AND cr.cr_status = 'completed' 
+                 WHERE l.l_status IN ('verified', 'completed')
                  ${whereSql_cr}) as verified_liquidations_total,
                 (
                 COALESCE(
                   (SELECT SUM(cr_amount)
-                  FROM cash_request
-                  WHERE cr_status = 'completed' ${whereSql_cr}),
-                  0
-                )
-                -
-                COALESCE(
-                  (SELECT SUM(l.l_amount_expended + l.l_reimburse_return)
-                  FROM liquidation l
-                  INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
-                  WHERE l.l_status = 'verified' 
-                  AND cr.cr_status = 'completed' 
-                  ${whereSql_cr}),
+                  FROM cash_request cr
+                  LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
+                  WHERE (l.l_id IS NULL OR NOT l.l_status IN ('verified', 'completed'))
+                  ${whereSql_cr} ),
                   0
                 )
               ) AS outstanding_balance
