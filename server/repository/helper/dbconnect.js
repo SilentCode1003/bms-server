@@ -3,11 +3,7 @@ const { createConnection } = require("mysql2");
 const { EncrypterString, DecrypterString } = require("./crytography");
 require("dotenv").config();
 
-<<<<<<< Updated upstream
 console.log(DecrypterString("5798a1949837ae45232afc19732fc599"));
-=======
-console.log(EncrypterString("password1"));
->>>>>>> Stashed changes
 
 const connection = createConnection({
   host: process.env.DB_HOST,
