@@ -9,30 +9,30 @@ const swaggerOptions = {
       description: "API documentation for Budget Monitoring System",
       contact: {
         name: "API Support",
-        email: "support@example.com"
-      }
+        email: "support@example.com",
+      },
     },
     servers: [
       {
         url: "http://localhost:5013",
-        description: "Localhost"
+        description: "Localhost",
       },
       {
         url: "http://192.168.40.229:5013",
-        description: "Staging Server"
+        description: "Staging Server",
       },
       {
         url: "http://192.168.40.229:5013",
-        description: "Development Server"
+        description: "Development Server",
       },
       {
         url: "http://172.16.1.32:5003",
-        description: "UAT Server"
+        description: "UAT Server",
       },
       {
         url: "http://192.168.40.229:5013",
-        description: "Auth Server"
-      }
+        description: "Auth Server",
+      },
     ],
 
     components: {
@@ -40,8 +40,8 @@ const swaggerOptions = {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "JWT"
-        }
+          bearerFormat: "JWT",
+        },
       },
 
       responses: {
@@ -51,24 +51,24 @@ const swaggerOptions = {
             "Access-Control-Allow-Origin": {
               schema: {
                 type: "string",
-                default: "*"
-              }
+                default: "*",
+              },
             },
             "Access-Control-Allow-Credentials": {
               schema: {
                 type: "boolean",
-                default: true
-              }
-            }
+                default: true,
+              },
+            },
           },
           content: {
             "application/json": {
               schema: {
-                $ref: "#/components/schemas/Error"
-              }
-            }
-          }
-        }
+                $ref: "#/components/schemas/Error",
+              },
+            },
+          },
+        },
       },
 
       schemas: {
@@ -77,41 +77,40 @@ const swaggerOptions = {
           properties: {
             success: {
               type: "boolean",
-              example: false
+              example: false,
             },
             message: {
               type: "string",
-              example: "An error occurred"
+              example: "An error occurred",
             },
             error: {
               type: "object",
               properties: {
                 status: {
                   type: "integer",
-                  example: 500
+                  example: 500,
                 },
                 message: {
                   type: "string",
-                  example: "Internal Server Error"
-                }
-              }
-            }
+                  example: "Internal Server Error",
+                },
+              },
+            },
           },
-          required: ["success", "message"]
-        }
-      }
+          required: ["success", "message"],
+        },
+      },
     },
 
     security: [
       {
-        bearerAuth: []
-      }
-    ]
+        bearerAuth: [],
+      },
+    ],
   },
 
-  apis: ["./repository/documentation/*.js"]
+  apis: ["./repository/documentation/*.js"],
 };
-
 
 const swaggerDocs = swaggerJSDoc(swaggerOptions);
 module.exports = swaggerDocs;
@@ -167,12 +166,12 @@ module.exports = swaggerDocs;
  *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                   description: |
  *                     JWT token to be used in Authorization header for subsequent requests.
- *                     
+ *
  *                     After successful login, use this token in the Authorization header:
  *                     ```
  *                     Authorization: Bearer <token>
  *                     ```
- *                     
+ *
  *                     For example:
  *                     ```
  *                     fetch('http://localhost:5013/api/endpoint', {
@@ -391,7 +390,6 @@ module.exports = swaggerDocs;
  *                   type: string
  */
 
-
 /**
  * @swagger
  * /dashboard/get_requester_cards:
@@ -463,7 +461,6 @@ module.exports = swaggerDocs;
  *                   type: string
  */
 
-
 /**
  * @swagger
  * /dashboard/get_teamleader_cards:
@@ -532,7 +529,6 @@ module.exports = swaggerDocs;
  *                 error:
  *                   type: string
  */
-
 
 /**
  * @swagger
@@ -691,7 +687,7 @@ module.exports = swaggerDocs;
  * /route_access/createbulk_route_access:
  *   post:
  *     summary: Create bulk route access records
- *     description: Inserts multiple predefined route access records for a given access_id. 
+ *     description: Inserts multiple predefined route access records for a given access_id.
  *                  Each record will be assigned "No Access" as the default status unless it already exists.
  *     tags:
  *       - Master Route Access
@@ -747,7 +743,6 @@ module.exports = swaggerDocs;
  *                 error:
  *                   type: string
  */
-
 
 /**
  * @swagger
@@ -1405,7 +1400,6 @@ module.exports = swaggerDocs;
  *               $ref: '#/components/schemas/Error'
  */
 
-
 /**
  * @swagger
  * /cash_request/updatecash_request:
@@ -2002,6 +1996,64 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /liquidation/update_liquidation:
+ *   put:
+ *     summary: Update liquidation status
+ *     description: Update the status of an existing liquidation and create liquidation activity. When status is verified, this endpoint also triggers accounting payload posting.
+ *     tags:
+ *       - Liquidation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved, verified, completed, rejected, incomplete]
+ *               id:
+ *                 type: integer
+ *               remarks:
+ *                 type: string
+ *               receipts:
+ *                 type: string
+ *                 description: Receipt metadata or encoded receipts payload
+ *               created_by:
+ *                 type: string
+ *             required:
+ *               - status
+ *               - id
+ *     responses:
+ *       200:
+ *         description: Liquidation updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Missing required fields or invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
  * /liquidation/getroutes_by_liquidation:
  *   get:
  *     summary: Get routes by liquidation
@@ -2211,8 +2263,8 @@ module.exports = swaggerDocs;
  *     summary: Undo a liquidation action
  *     description: >
  *       Reverts a liquidation by:
- *       - Removing the **CHECKED** liquidation activity  
- *       - Resetting liquidation status back to **approved**  
+ *       - Removing the **CHECKED** liquidation activity
+ *       - Resetting liquidation status back to **approved**
  *       - Creating a new liquidation activity entry with action **REVERTED**
  *     tags:
  *       - Liquidation
@@ -2869,7 +2921,6 @@ module.exports = swaggerDocs;
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-
 
 /**
  * @swagger

@@ -1,4 +1,5 @@
 var express = require("express");
+const axios = require("axios");
 // const sharp = require("sharp");
 // const tesseract = require("tesseract.js");
 // let postal;
@@ -45,17 +46,93 @@ const emitLiquidationUpdate = (req, event, data) => {
   }
 };
 
+const buildAccountingPayload = async (liquidationId) => {
+  const selectItemsSql = SelectStatement(
+    `SELECT li_particulars as particulars, li_amount as amount
+     FROM liquidation_item
+     WHERE li_liquidation_id = ?`,
+    [liquidationId],
+  );
+
+  const items = await Select(selectItemsSql);
+
+  const journal_entries = (items || []).map((item) => {
+    const rawParticulars = item.particulars
+      ? item.particulars.toString().trim()
+      : "";
+    const account_id =
+      rawParticulars
+        .replace(/^\s*[\d,]+(?:\s*-\s*[\d,]+)?\s*-\s*/i, "")
+        .trim() || "N/A";
+
+    return {
+      account_id,
+      responsibility_center: "Admin",
+      debit: parseFloat(item.amount) || 0,
+      credit: 0,
+    };
+  });
+
+  const total_amount = journal_entries.reduce(
+    (sum, entry) => sum + (parseFloat(entry.debit) || 0),
+    0,
+  );
+
+  journal_entries.push({
+    account_id: "Cash On Hand",
+    responsibility_center: "Admin",
+    debit: 0,
+    credit: total_amount,
+  });
+
+  return {
+    success: true,
+    data: {
+      document_reference: "",
+      posting_date: new Date().toISOString().slice(0, 10),
+      remarks: `Auto-generated allocation breakdown from checked liquidation ${liquidationId}.`,
+      total_amount,
+      created_by: "Admin",
+      adjustment_attachments: [],
+      journal_entries,
+    },
+  };
+};
+
+const sendAccountingPayload = async (payload) => {
+  if (!process.env.ACCOUNTING_LINK) {
+    console.warn(
+      "ACCOUNTING_LINK is not configured, skipping accounting post.",
+    );
+    return null;
+  }
+
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (process.env.AUTHORIZATION_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.AUTHORIZATION_TOKEN}`;
+  }
+
+  if (process.env.TENANT_DB) {
+    headers["x-tenant-db"] = process.env.TENANT_DB;
+  }
+
+  return axios.post(process.env.ACCOUNTING_LINK, payload, { headers });
+};
+
 // const processReceiptImage = async (base64Image, imageIndex) => {
 //   try {
 //     console.log(`\n=== Processing Receipt Image ${imageIndex + 1} ===`);
-    
+
 //     const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, "");
 //     const imageBuffer = Buffer.from(base64Data, "base64");
-    
+
 //     console.log(`Image size: ${imageBuffer.length} bytes`);
-    
+
 //     const processedImage = await sharp(imageBuffer)
-//       .resize(2000, null, { 
+//       .resize(2000, null, {
 //         withoutEnlargement: true,
 //         fit: "inside"
 //       })
@@ -63,9 +140,9 @@ const emitLiquidationUpdate = (req, event, data) => {
 //       .normalize()
 //       .png()
 //       .toBuffer();
-    
+
 //     console.log("Image processed with Sharp for OCR optimization");
-    
+
 //     const { data: { text } } = await tesseract.recognize(
 //       processedImage,
 //       'eng',
@@ -77,9 +154,9 @@ const emitLiquidationUpdate = (req, event, data) => {
 //         }
 //       }
 //     );
-    
+
 //     console.log(`OCR Raw Text:\n${text}`);
-    
+
 //     const addressPatterns = [
 //       /Delivered to\s*\n\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*\d+x\s+)/gi,
 //       /Delivered to\s*\n\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\s*[A-Z][a-z]+\s+[A-Z])/gi,
@@ -89,7 +166,7 @@ const emitLiquidationUpdate = (req, event, data) => {
 //       /(\d+\s+[\w\s]+\s+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|court|ct|way|place|pl|square|sq))/gi,
 //       /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s*,\s*[A-Z]{2}\s*\d{5})/g,
 //     ];
-    
+
 //     let extractedAddress = null;
 //     for (const pattern of addressPatterns) {
 //       const matches = text.match(pattern);
@@ -97,10 +174,10 @@ const emitLiquidationUpdate = (req, event, data) => {
 //         extractedAddress = matches[0].trim();
 //         console.log(`   Address pattern matched: ${pattern}`);
 //         console.log(`   Raw extracted address: ${extractedAddress}`);
-        
+
 //         const lines = extractedAddress.split('\n').map(line => line.trim()).filter(line => line);
 //         const cleanLines = [];
-        
+
 //         for (const line of lines) {
 //           if (/\d+x\s+/i.test(line) ||
 //               /^[A-Z][a-z]+\s+[A-Z][a-z]+\s+\d+\.?\d*$/.test(line) ||
@@ -110,16 +187,16 @@ const emitLiquidationUpdate = (req, event, data) => {
 //           }
 //           cleanLines.push(line);
 //         }
-        
+
 //         extractedAddress = cleanLines.join(', ').replace(/\s+/g, ' ').trim();
-        
+
 //         extractedAddress = extractedAddress
 //           .replace(/Bifian/gi, 'Biñan')
 //           .replace(/Binan/gi, 'Biñan')
 //           .replace(/Nia/gi, 'ñ')
 //           .replace(/Delivered to,?\s*/gi, '')
 //           .replace(/^\s*Delivered to\s*/i, '');
-        
+
 //         if (extractedAddress.length > 100 || extractedAddress.toLowerCase().includes('roasted') || extractedAddress.toLowerCase().includes('chicken')) {
 //           const deliveredToMatch = text.match(/Delivered to\s*\n\s*([^\n]+)/i);
 //           if (deliveredToMatch) {
@@ -131,7 +208,7 @@ const emitLiquidationUpdate = (req, event, data) => {
 //             console.log(`   Using simpler address extraction: ${extractedAddress}`);
 //           }
 //         }
-        
+
 //         if (postal) {
 //           try {
 //             const parsedAddress = postal.parse(extractedAddress);
@@ -146,7 +223,7 @@ const emitLiquidationUpdate = (req, event, data) => {
 //         break;
 //       }
 //     }
-    
+
 //     const vatPatterns = [
 //       /Incl\.?\s*VAT\s*P\s*([\d,]+\.?\d*)/gi,
 //       /VAT\s*:?\s*([P$]?\s*[\d,]+\.?\d*)/gi,
@@ -165,19 +242,19 @@ const emitLiquidationUpdate = (req, event, data) => {
 //       /VAT.*?([P$]?\s*[\d,]+\.?\d*)/gi,
 //       /Tax.*?([P$]?\s*[\d,]+\.?\d*)/gi,
 //     ];
-    
+
 //     let extractedVAT = null;
 //     for (const pattern of vatPatterns) {
 //       const matches = text.match(pattern);
 //       if (matches && matches.length > 0) {
 //         console.log(`   VAT pattern matched: ${pattern}`);
 //         console.log(`   VAT matches found: ${matches.join(', ')}`);
-        
+
 //         for (const match of matches) {
 //           let vatMatch = match.match(/([P$]?\s*[\d,]+\.?\d*)/);
 //           if (vatMatch) {
 //             let vatValue = vatMatch[1].replace(/[P$\s,]/g, '');
-            
+
 //             if (vatValue.length >= 4 && !vatValue.includes('.')) {
 //               const wholePart = vatValue.substring(0, vatValue.length - 2);
 //               const decimalPart = vatValue.substring(vatValue.length - 2);
@@ -190,7 +267,7 @@ const emitLiquidationUpdate = (req, event, data) => {
 //                 }
 //               }
 //             }
-            
+
 //             const parsedVAT = parseFloat(vatValue);
 //             if (!isNaN(parsedVAT) && parsedVAT > 0 && parsedVAT < 1000) {
 //               extractedVAT = parsedVAT;
@@ -202,21 +279,21 @@ const emitLiquidationUpdate = (req, event, data) => {
 //         if (extractedVAT) break;
 //       }
 //     }
-    
+
 //     const totalAmountPattern = [
 //       /Total\s*\(?\s*(?:incl\.?\s*VAT\s*(?:where\s*applicable)?\s*\)?)\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
 //       /Total\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
 //       /Subtotal\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
 //       /Amount\s*[:=]?\s*[P$]?\s*([\d,]+\.?\d*)/gi,
 //     ];
-    
+
 //     let totalAmount = null;
 //     for (const pattern of totalAmountPattern) {
 //       const matches = text.match(pattern);
 //       if (matches && matches.length > 0) {
 //         console.log(`   Total amount pattern matched: ${pattern}`);
 //         console.log(`   Total amount matches found: ${matches.join(', ')}`);
-        
+
 //         for (const match of matches) {
 //           const amountMatch = match.match(/([P$]?\s*[\d,]+\.?\d*)/);
 //           if (amountMatch) {
@@ -232,19 +309,19 @@ const emitLiquidationUpdate = (req, event, data) => {
 //         if (totalAmount) break;
 //       }
 //     }
-    
+
 //     console.log(`📧 Extracted Address: ${extractedAddress || 'Not found'}`);
 //     console.log(`🧾 Extracted VAT: ${extractedVAT ? extractedVAT + '%' : 'Not found'}`);
 //     console.log(`💰 Total Amount: ${totalAmount ? '$' + totalAmount : 'Not found'}`);
 //     console.log(`=== End Processing Receipt Image ${imageIndex + 1} ===\n`);
-    
+
 //     return {
 //       address: extractedAddress,
 //       vat: extractedVAT,
 //       totalAmount: totalAmount,
 //       rawText: text.substring(0, 500) + (text.length > 500 ? '...' : '')
 //     };
-    
+
 //   } catch (error) {
 //     console.error(`Error processing receipt image ${imageIndex + 1}:`, error.message);
 //     console.log(`=== Error Processing Receipt Image ${imageIndex + 1} ===\n`);
@@ -266,6 +343,7 @@ module.exports = router;
 
 router.get("/getcash_liquidation", async (req, res) => {
   const { status, employee_id } = req.query;
+  console.log(".env.local", process.env.ACCOUNTING_LINK);
   try {
     async function ProcessData() {
       let whereConditions = [];
@@ -325,17 +403,18 @@ router.get("/getcash_liquidation", async (req, res) => {
                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
                 ${whereClause}
                 GROUP BY l.l_id
-                ${status && status.toLowerCase() === "rejected"
-          ? `HAVING 
+                ${
+                  status && status.toLowerCase() === "rejected"
+                    ? `HAVING 
                             EXISTS (
                                 SELECT 1 
                                 FROM liquidation_activity lia1
                                 WHERE lia1.lia_liquidation_id = l.l_id
                                 AND lia1.lia_action = 'PREPARED'
                             )`
-          : ""
-        }
-                ORDER BY l.l_id DESC`
+                    : ""
+                }
+                ORDER BY l.l_id DESC`,
       );
 
       let result = await Select(select_liquidation_sql);
@@ -437,11 +516,8 @@ router.get("/getcash_liquidation_id", async (req, res) => {
 
 router.get("/getliquidation_by_cv_number", async (req, res) => {
   try {
-    const {
-      cv_number
-    } = req.query;
+    const { cv_number } = req.query;
     async function ProcessData() {
-
       let select_liquidation_sql = SelectStatement(
         `SELECT
         l_id as id,
@@ -460,7 +536,7 @@ router.get("/getliquidation_by_cv_number", async (req, res) => {
         WHERE cr.cr_cv_number = ?
         ORDER BY l_created_date DESC
         `,
-        [cv_number]
+        [cv_number],
       );
       let result = await Select(select_liquidation_sql);
       return res.status(200).json(DataModeling(result, "li_"));
@@ -475,46 +551,46 @@ router.get("/getliquidation_by_cv_number", async (req, res) => {
 router.get("/getapproved_liquidation", async (req, res) => {
   let { status, start_date, end_date } = req.query;
   try {
-        if (!start_date && !end_date) {
-            start_date = '0000-01-01';
-            end_date = '9999-12-31';
-        }
-        const parseToSqlDate = (dt, endOfDay = false) => {
-        if (!dt) return null;
-        let parts = dt.split("-");
-        let yyyy, mm, dd;
-        if (parts[0].length === 4) {
-          yyyy = parts[0];
-          mm = parts[1];
-          dd = parts[2];
-        } else if (parts[2] && parts[2].length === 4) {
-          yyyy = parts[2];
-          mm = parts[0];
-          dd = parts[1];
-        } else {
-          return null;
-        }
-        return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")} ${endOfDay ? "23:59:59" : "00:00:00"}`;
-      };
-
-      let start = start_date ? parseToSqlDate(start_date, false) : null;
-      let end = end_date ? parseToSqlDate(end_date, true) : null;
-
-      if (!start && !end) {
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, "0");
-        const dd = String(now.getDate()).padStart(2, "0");
-        start = `${yyyy}-${mm}-${dd} 00:00:00`;
-        end = `${yyyy}-${mm}-${dd} 23:59:59`;
+    if (!start_date && !end_date) {
+      start_date = "0000-01-01";
+      end_date = "9999-12-31";
+    }
+    const parseToSqlDate = (dt, endOfDay = false) => {
+      if (!dt) return null;
+      let parts = dt.split("-");
+      let yyyy, mm, dd;
+      if (parts[0].length === 4) {
+        yyyy = parts[0];
+        mm = parts[1];
+        dd = parts[2];
+      } else if (parts[2] && parts[2].length === 4) {
+        yyyy = parts[2];
+        mm = parts[0];
+        dd = parts[1];
+      } else {
+        return null;
       }
+      return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")} ${endOfDay ? "23:59:59" : "00:00:00"}`;
+    };
 
-      let whereClauses_cr = [];
-      if (start) whereClauses_cr.push(`l.l_created_date >= '${start}'`);
-      if (end) whereClauses_cr.push(`l.l_created_date <= '${end}'`);
-      let whereSql_cr = whereClauses_cr.length
-        ? `AND ${whereClauses_cr.join(" AND ")}`
-        : "";
+    let start = start_date ? parseToSqlDate(start_date, false) : null;
+    let end = end_date ? parseToSqlDate(end_date, true) : null;
+
+    if (!start && !end) {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      start = `${yyyy}-${mm}-${dd} 00:00:00`;
+      end = `${yyyy}-${mm}-${dd} 23:59:59`;
+    }
+
+    let whereClauses_cr = [];
+    if (start) whereClauses_cr.push(`l.l_created_date >= '${start}'`);
+    if (end) whereClauses_cr.push(`l.l_created_date <= '${end}'`);
+    let whereSql_cr = whereClauses_cr.length
+      ? `AND ${whereClauses_cr.join(" AND ")}`
+      : "";
 
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
@@ -541,7 +617,7 @@ router.get("/getapproved_liquidation", async (req, res) => {
           ${status ? `WHERE l.l_status = '${status}'` : ""}
           ${whereSql_cr}
           GROUP BY l.l_id
-          ORDER BY l.l_id DESC`
+          ORDER BY l.l_id DESC`,
       );
 
       let result = await Select(select_liquidation_sql);
@@ -583,14 +659,14 @@ router.get("/getapproved_liquidation", async (req, res) => {
 router.get("/getstore_by_liquidation", async (req, res) => {
   try {
     const { store_name, offset, limit } = req.query;
-        let limitValue =
-            limit && limit !== "0" && limit !== "-1" && limit !== ""
-                ? parseInt(limit)
-                : 999999;
-        let offsetValue =
-            offset && offset !== "0" && offset !== "-1" && offset !== ""
-                ? parseInt(offset)
-                : 0;
+    let limitValue =
+      limit && limit !== "0" && limit !== "-1" && limit !== ""
+        ? parseInt(limit)
+        : 999999;
+    let offsetValue =
+      offset && offset !== "0" && offset !== "-1" && offset !== ""
+        ? parseInt(offset)
+        : 0;
     if (!store_name) {
       return res.status(400).json(JsonResposeError("Missing store_name"));
     }
@@ -609,7 +685,7 @@ router.get("/getstore_by_liquidation", async (req, res) => {
         WHERE li.li_store_name = ?
         GROUP BY l.l_cr_reference_id, li.li_store_name, cr.cr_employee, l.l_created_date
         LIMIT ${limitValue} OFFSET ${offsetValue}`,
-        [store_name, store_name]
+        [store_name, store_name],
       );
 
       const result = await Select(selectLiquidationSql);
@@ -662,7 +738,7 @@ router.get("/getroutes_by_liquidation", async (req, res) => {
             ${condition}
             ORDER BY l_created_date DESC
             `,
-        [store_name, ...params]
+        [store_name, ...params],
       );
       let result = await Select(select_liquidation_sql);
       return res.status(200).json(DataModeling(result, "li_"));
@@ -716,16 +792,16 @@ router.post("/create_liquidation", async (req, res) => {
       created_by,
     } = req.body;
     let status = "PENDING";
-    let request_date = GetCurrentDatetime();  
+    let request_date = GetCurrentDatetime();
     let action = "PREPARED";
     let created_at = GetCurrentDatetime();
 
-    if(amount_obtained === 0){
+    if (amount_obtained === 0) {
       return res.status(400).json(JsonResposeError("amount obtained is zero"));
     }
     const checkSql = SelectStatement(
       `SELECT * FROM liquidation WHERE l_cr_reference_id = ?`,
-      [reference_id]
+      [reference_id],
     );
     const existingLiquidation = await Select(checkSql);
 
@@ -733,7 +809,7 @@ router.post("/create_liquidation", async (req, res) => {
       return res
         .status(400)
         .json(
-          JsonResposeError("Liquidation with same reference id already exists")
+          JsonResposeError("Liquidation with same reference id already exists"),
         );
     }
     if (Array.isArray(request_items) && request_items.length > 0) {
@@ -754,7 +830,9 @@ router.post("/create_liquidation", async (req, res) => {
 
       let missingToStores = [];
       uniqueStores.forEach((store) => {
-        if (!cleanedItems.some((i) => i.store_name === store && i.to === store)) {
+        if (
+          !cleanedItems.some((i) => i.store_name === store && i.to === store)
+        ) {
           missingToStores.push(store);
         }
       });
@@ -765,12 +843,12 @@ router.post("/create_liquidation", async (req, res) => {
           .json(
             JsonResposeError(
               `Please mention the store destination you reached in the 'TO' column input field so we know you reached the store. The following stores have no TO store name: ${missingToStores.join(", ")}`,
-              { missingStores: missingToStores }
-            )
+              { missingStores: missingToStores },
+            ),
           );
       }
     }
-    
+
     const io = req.app.get("io");
     if (io) {
       io.emit("liquidation:creating", {
@@ -792,22 +870,21 @@ router.post("/create_liquidation", async (req, res) => {
         reimburse_return,
         request_date,
         status,
-      ]
+      ],
     ];
 
     const insertSql = InsertStatement(
       Liquidations.liquidation.tablename,
       Liquidations.liquidation.prefix,
-      Liquidations.liquidation.insertColumns
+      Liquidations.liquidation.insertColumns,
     );
 
     const liquidationResult = await Insert(insertSql, liquidationData);
 
-
     const liquidation_id = liquidationResult[0].id;
 
     if (!liquidation_id) {
-      console.log("Failed to insert liquidation")
+      console.log("Failed to insert liquidation");
       return res
         .status(400)
         .json(JsonResposeError("Failed to insert liquidation"));
@@ -816,13 +893,15 @@ router.post("/create_liquidation", async (req, res) => {
     if (Array.isArray(request_items) && request_items.length > 0) {
       for (const [index, item] of request_items.entries()) {
         if (!item.date || !item.particulars) {
-          console.log(`Request item at index ${index} is missing required fields (date, particulars).`)
+          console.log(
+            `Request item at index ${index} is missing required fields (date, particulars).`,
+          );
           return res
             .status(400)
             .json(
               JsonResposeError(
-                `Request item at index ${index} is missing required fields (date, particulars).`
-              )
+                `Request item at index ${index} is missing required fields (date, particulars).`,
+              ),
             );
         }
       }
@@ -834,13 +913,13 @@ router.post("/create_liquidation", async (req, res) => {
           receipts ? JSON.stringify(receipts) : null,
           created_at,
           created_by,
-        ]
+        ],
       ];
 
       const activityInsertSql = InsertStatement(
         Liquidations.liquidation_activity.tablename,
         Liquidations.liquidation_activity.prefix,
-        Liquidations.liquidation_activity.insertColumns
+        Liquidations.liquidation_activity.insertColumns,
       );
 
       await Insert(activityInsertSql, activityData);
@@ -848,11 +927,11 @@ router.post("/create_liquidation", async (req, res) => {
       // // Process receipt images to extract address and VAT information
       // if (receipts && Array.isArray(receipts) && receipts.length > 0) {
       //   console.log(`\n📸 Found ${receipts.length} receipt(s) to process for address and VAT extraction`);
-        
+
       //   for (let i = 0; i < receipts.length; i++) {
       //     const receipt = receipts[i];
       //     let base64Data = null;
-          
+
       //     // Handle both string format and object format
       //     if (typeof receipt === 'string') {
       //       // Receipt is a base64 string
@@ -868,22 +947,22 @@ router.post("/create_liquidation", async (req, res) => {
       //       console.log(`   Receipt content:`, receipt);
       //       continue;
       //     }
-          
+
       //     if (base64Data) {
       //       const extractedData = await processReceiptImage(base64Data, i);
-            
+
       //       // Log the extracted information for verification
       //       console.log(`✅ Receipt ${i + 1} Processing Complete:`);
       //       console.log(`   - Address: ${extractedData.address || 'Not detected'}`);
       //       console.log(`   - VAT: ${extractedData.vat ? extractedData.vat + '%' : 'Not detected'}`);
       //       console.log(`   - Total Amount: ${extractedData.totalAmount ? '$' + extractedData.totalAmount : 'Not detected'}`);
-            
+
       //       if (extractedData.error) {
       //         console.log(`   - Error: ${extractedData.error}`);
       //       }
       //     }
       //   }
-        
+
       //   console.log(`\n🎉 All receipt images processed successfully!\n`);
       // } else {
       //   console.log(`\n📄 No receipts found or receipts array is empty\n`);
@@ -940,7 +1019,7 @@ router.post("/create_liquidation", async (req, res) => {
         const itemsInsertSql = InsertStatement(
           Liquidations.liquidation_item.tablename,
           Liquidations.liquidation_item.prefix,
-          Liquidations.liquidation_item.insertColumns
+          Liquidations.liquidation_item.insertColumns,
         );
 
         const bulkRes = await Insert(itemsInsertSql, itemsData);
@@ -948,7 +1027,7 @@ router.post("/create_liquidation", async (req, res) => {
           "Bulk inserted liquidation items, insertId:",
           bulkRes[0]?.id,
           "affectedRows:",
-          itemsData.length
+          itemsData.length,
         );
       }
 
@@ -1077,8 +1156,8 @@ router.post("/create_liquidation", async (req, res) => {
       .status(500)
       .json(
         JsonResposeError(
-          error.message || "An error occurred while creating the liquidation"
-        )
+          error.message || "An error occurred while creating the liquidation",
+        ),
       );
   }
 });
@@ -1088,14 +1167,12 @@ router.put("/undo_liquidation", async (req, res) => {
     const { liquidation_id } = req.body;
 
     if (!liquidation_id) {
-      return res
-        .status(400)
-        .json(JsonResposeError("Missing liquidation_id"));
+      return res.status(400).json(JsonResposeError("Missing liquidation_id"));
     }
 
     const checkSql = SelectStatement(
       `SELECT l_id FROM liquidation WHERE l_id = ? LIMIT 1`,
-      [liquidation_id]
+      [liquidation_id],
     );
 
     const existing = await Select(checkSql);
@@ -1109,7 +1186,7 @@ router.put("/undo_liquidation", async (req, res) => {
     await Delete(
       `DELETE FROM liquidation_activity
        WHERE lia_liquidation_id = ? AND lia_action = ?`,
-      [id, "CHECKED"]
+      [id, "CHECKED"],
     );
 
     const status = "approved";
@@ -1122,7 +1199,7 @@ router.put("/undo_liquidation", async (req, res) => {
         Liquidations.liquidation.selectOptionsColumn.status,
         Liquidations.liquidation.selectOptionsColumn.notification,
       ],
-      [Liquidations.liquidation.selectOptionsColumn.id]
+      [Liquidations.liquidation.selectOptionsColumn.id],
     );
 
     await Update(update_sql, updateData);
@@ -1170,7 +1247,7 @@ router.put("/update_liquidation", async (req, res) => {
             Liquidations.liquidation.selectOptionsColumn.status,
             Liquidations.liquidation.selectOptionsColumn.notification,
           ],
-          [Liquidations.liquidation.selectOptionsColumn.id]
+          [Liquidations.liquidation.selectOptionsColumn.id],
         );
         await Update(update_sql, [data]);
 
@@ -1180,7 +1257,7 @@ router.put("/update_liquidation", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           Liquidations.liquidation_activity.tablename,
           Liquidations.liquidation_activity.prefix,
-          Liquidations.liquidation_activity.insertColumns
+          Liquidations.liquidation_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
 
@@ -1199,7 +1276,7 @@ router.put("/update_liquidation", async (req, res) => {
             Liquidations.liquidation.selectOptionsColumn.status,
             Liquidations.liquidation.selectOptionsColumn.notification,
           ],
-          [Liquidations.liquidation.selectOptionsColumn.id]
+          [Liquidations.liquidation.selectOptionsColumn.id],
         );
         await Update(update_sql, [data]);
 
@@ -1209,7 +1286,7 @@ router.put("/update_liquidation", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           Liquidations.liquidation_activity.tablename,
           Liquidations.liquidation_activity.prefix,
-          Liquidations.liquidation_activity.insertColumns
+          Liquidations.liquidation_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
         let select_liquidation = SelectStatement(
@@ -1224,17 +1301,23 @@ router.put("/update_liquidation", async (req, res) => {
             INNER JOIN cash_request ON l_cr_reference_id = cr_reference_id
             WHERE l_id = ?
           `,
-          [id]
+          [id],
         );
         let liquidation = await Select(select_liquidation);
 
-        let { amount_issued, amount_expended, amount_reimburse, amount_return, cash_voucher } = liquidation[0];
+        let {
+          amount_issued,
+          amount_expended,
+          amount_reimburse,
+          amount_return,
+          cash_voucher,
+        } = liquidation[0];
 
         let select_emmployee_id = SelectStatement(
           `SELECT
                     cr_employee_id as employee_id
                     FROM cash_request
-                    WHERE cr_reference_id = "${liquidation[0]?.reference_id}"`
+                    WHERE cr_reference_id = "${liquidation[0]?.reference_id}"`,
         );
         let employee_id = await Select(select_emmployee_id);
         employee_id = employee_id[0]?.employee_id;
@@ -1246,11 +1329,15 @@ router.put("/update_liquidation", async (req, res) => {
                     mw_previous_amount as previous_amount,
                     mw_current_amount as current_amount
                     FROM master_wallet
-                    WHERE mw_employee_id = "${employee_id}"`
+                    WHERE mw_employee_id = "${employee_id}"`,
         );
         let walletResult = await Select(select_wallet_sql);
         let { previous_amount, current_amount } = walletResult[0];
-        console.log("Current and Previouse amount", previous_amount, current_amount)
+        console.log(
+          "Current and Previouse amount",
+          previous_amount,
+          current_amount,
+        );
 
         let wallet_data = [current_amount, 0, employee_id];
         let update_wallet_sql = UpdateStatement(
@@ -1259,7 +1346,7 @@ router.put("/update_liquidation", async (req, res) => {
             Masters.master_wallet.selectOptionsColumn.previous_amount,
             Masters.master_wallet.selectOptionsColumn.current_amount,
           ],
-          [Masters.master_wallet.selectOptionsColumn.employee_id]
+          [Masters.master_wallet.selectOptionsColumn.employee_id],
         );
         await Update(update_wallet_sql, [wallet_data]);
 
@@ -1273,9 +1360,19 @@ router.put("/update_liquidation", async (req, res) => {
         let wallet_activity_insert_sql = InsertStatement(
           Masters.master_wallet_activity.tablename,
           Masters.master_wallet_activity.prefix,
-          Masters.master_wallet_activity.insertColumns
+          Masters.master_wallet_activity.insertColumns,
         );
         await Insert(wallet_activity_insert_sql, wallet_activityData);
+
+        const accountingPayload = await buildAccountingPayload(id);
+        try {
+          await sendAccountingPayload(accountingPayload);
+        } catch (error) {
+          console.error(
+            "Failed to send accounting payload:",
+            error?.message || error,
+          );
+        }
 
         emitLiquidationUpdate(req, "verified", {
           event: "liquidation_verified",
@@ -1298,7 +1395,7 @@ router.put("/update_liquidation", async (req, res) => {
             Liquidations.liquidation.selectOptionsColumn.status,
             Liquidations.liquidation.selectOptionsColumn.notification,
           ],
-          [Liquidations.liquidation.selectOptionsColumn.id]
+          [Liquidations.liquidation.selectOptionsColumn.id],
         );
         await Update(update_sql, [data]);
 
@@ -1308,7 +1405,7 @@ router.put("/update_liquidation", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           Liquidations.liquidation_activity.tablename,
           Liquidations.liquidation_activity.prefix,
-          Liquidations.liquidation_activity.insertColumns
+          Liquidations.liquidation_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
 
@@ -1327,21 +1424,23 @@ router.put("/update_liquidation", async (req, res) => {
             Liquidations.liquidation.selectOptionsColumn.status,
             Liquidations.liquidation.selectOptionsColumn.notification,
           ],
-          [Liquidations.liquidation.selectOptionsColumn.id]
+          [Liquidations.liquidation.selectOptionsColumn.id],
         );
         await Update(update_sql, data);
 
         let select_liquidation_activity_sql = SelectStatement(
           `SELECT lia_id FROM liquidation_activity 
            WHERE lia_liquidation_id = ? AND lia_action != 'REJECTED'`,
-          [id]
+          [id],
         );
-        let liquidation_activity = await Select(select_liquidation_activity_sql);
-        if(liquidation_activity.length > 0){
+        let liquidation_activity = await Select(
+          select_liquidation_activity_sql,
+        );
+        if (liquidation_activity.length > 0) {
           await Delete(
             `DELETE FROM liquidation_activity 
              WHERE lia_liquidation_id = ? AND lia_action = 'REJECTED'`,
-            [id]
+            [id],
           );
         }
 
@@ -1351,7 +1450,7 @@ router.put("/update_liquidation", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           Liquidations.liquidation_activity.tablename,
           Liquidations.liquidation_activity.prefix,
-          Liquidations.liquidation_activity.insertColumns
+          Liquidations.liquidation_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
 
@@ -1371,7 +1470,7 @@ router.put("/update_liquidation", async (req, res) => {
             Liquidations.liquidation.selectOptionsColumn.status,
             Liquidations.liquidation.selectOptionsColumn.notification,
           ],
-          [Liquidations.liquidation.selectOptionsColumn.id]
+          [Liquidations.liquidation.selectOptionsColumn.id],
         );
         await Update(update_sql, data);
 
@@ -1381,7 +1480,7 @@ router.put("/update_liquidation", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           Liquidations.liquidation_activity.tablename,
           Liquidations.liquidation_activity.prefix,
-          Liquidations.liquidation_activity.insertColumns
+          Liquidations.liquidation_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
 
@@ -1461,12 +1560,10 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       let hasReachedAllDestinations = false;
       if (uniqueStores.length === 1) {
         const store = uniqueStores[0];
-        hasReachedAllDestinations = cleanedItems.some(
-          (i) => i.to === store
-        );
+        hasReachedAllDestinations = cleanedItems.some((i) => i.to === store);
       } else {
         hasReachedAllDestinations = uniqueStores.every((store) =>
-          cleanedItems.some((i) => i.to === store)
+          cleanedItems.some((i) => i.to === store),
         );
       }
 
@@ -1477,7 +1574,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
             (i) =>
               i.store_name === store &&
               i.to === store &&
-              i.mode_of_transportation !== ""
+              i.mode_of_transportation !== "",
           )
         ) {
           missingToStores.push(store);
@@ -1489,26 +1586,26 @@ router.put("/update_liquidation_rejected", async (req, res) => {
           .json(
             JsonResposeError(
               `Please mention the store destination you reached in the 'TO' column input field so we know you reached the store. The following stores have no TO store name: ${missingToStores.join(
-                ", "
+                ", ",
               )}`,
-              { missingStores: missingToStores }
-            )
+              { missingStores: missingToStores },
+            ),
           );
       }
     }
 
     let storedReceipts = Array.isArray(receipts)
       ? receipts.map((r, i) => ({
-        id: r.id || (i + 1).toString(),
-        image: r.image || "",
-      }))
+          id: r.id || (i + 1).toString(),
+          image: r.image || "",
+        }))
       : [];
 
     const liquidationSql = SelectStatement(
       `SELECT l_amount_obtained AS amount_obtained 
        FROM liquidation 
        WHERE l_id = ?`,
-      [liquidation_id]
+      [liquidation_id],
     );
 
     const liquidation = await Select(liquidationSql);
@@ -1516,27 +1613,29 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 
     const amount_expended = items.reduce(
       (sum, i) => sum + (parseFloat(i.amount) || 0),
-      0
+      0,
     );
     let reimburse_return = amount_obtained - amount_expended;
     if (reimburse_return < 0) reimburse_return = Math.abs(reimburse_return);
 
     const updateLiquidationSql = UpdateStatement(
       Liquidations.liquidation.tablename,
-      ['l_amount_expended', 'l_reimburse_return'],
-      ['l_id']
+      ["l_amount_expended", "l_reimburse_return"],
+      ["l_id"],
     );
-    await Update(updateLiquidationSql, [amount_expended, reimburse_return, liquidation_id]);
+    await Update(updateLiquidationSql, [
+      amount_expended,
+      reimburse_return,
+      liquidation_id,
+    ]);
 
-    await Delete(
-      `DELETE FROM red_flags WHERE rf_liquidation_id = ?`,
-      [liquidation_id]
-    );
+    await Delete(`DELETE FROM red_flags WHERE rf_liquidation_id = ?`, [
+      liquidation_id,
+    ]);
 
-    await Delete(
-      `DELETE FROM liquidation_item WHERE li_liquidation_id = ?`,
-      [liquidation_id]
-    );
+    await Delete(`DELETE FROM liquidation_item WHERE li_liquidation_id = ?`, [
+      liquidation_id,
+    ]);
 
     const itemsData = items.map((item) => [
       liquidation_id,
@@ -1548,11 +1647,11 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       item.from
         ? item.from.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
         : "N/A",
-      item.to
-        ? item.to.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
-        : "N/A",
+      item.to ? item.to.replace(/[^\w\s]/g, "").replace(/\s+/g, " ") : "N/A",
       item.mode_of_transportation
-        ? item.mode_of_transportation.replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
+        ? item.mode_of_transportation
+            .replace(/[^\w\s]/g, "")
+            .replace(/\s+/g, " ")
         : "N/A",
       parseFloat(item.amount) || 0,
     ]);
@@ -1561,7 +1660,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       const insert_item_sql = InsertStatement(
         Liquidations.liquidation_item.tablename,
         Liquidations.liquidation_item.prefix,
-        Liquidations.liquidation_item.insertColumns
+        Liquidations.liquidation_item.insertColumns,
       );
       await Insert(insert_item_sql, itemsData);
 
@@ -1570,7 +1669,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
    FROM liquidation_item 
    WHERE li_liquidation_id = ? 
    ORDER BY li_id DESC LIMIT ${itemsData.length}`,
-        [liquidation_id]
+        [liquidation_id],
       );
 
       const insertedRows = await Select(selectInsertedSql);
@@ -1672,12 +1771,12 @@ router.put("/update_liquidation_rejected", async (req, res) => {
       Liquidations.liquidation_activity.tablename,
       [
         Liquidations.liquidation_activity.selectOptionsColumn.remarks,
-        Liquidations.liquidation_activity.selectOptionsColumn.receipts
+        Liquidations.liquidation_activity.selectOptionsColumn.receipts,
       ],
       [
         Liquidations.liquidation_activity.selectOptionsColumn.liquidation_id,
-        Liquidations.liquidation_activity.selectOptionsColumn.action
-      ]
+        Liquidations.liquidation_activity.selectOptionsColumn.action,
+      ],
     );
 
     await Update(updateActivitySql, [
@@ -1689,22 +1788,22 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 
     if (status != "incomplete") {
       const updateStatusSql = UpdateStatement(
-        'liquidation',
-        ['l_status', 'l_notification'],
-        ['l_id']
+        "liquidation",
+        ["l_status", "l_notification"],
+        ["l_id"],
       );
       await Update(updateStatusSql, ["pending", 1, liquidation_id]);
     } else {
       const updateStatusSql = UpdateStatement(
-        'liquidation',
-        ['l_status', 'l_notification'],
-        ['l_id']
+        "liquidation",
+        ["l_status", "l_notification"],
+        ["l_id"],
       );
       await Update(updateStatusSql, ["verified", 1, liquidation_id]);
     }
 
     // await Delete(
-    //   `DELETE FROM liquidation_activity 
+    //   `DELETE FROM liquidation_activity
     //    WHERE lia_liquidation_id = ? AND lia_action != ?`,
     //   [liquidation_id, 'REJECTED']
     // );
@@ -1717,15 +1816,14 @@ router.put("/update_liquidation_rejected", async (req, res) => {
     });
 
     res.status(200).json(JsonResponseSuccess());
-
   } catch (error) {
     console.error("Error in update_liquidation_rejected:", error);
     res
       .status(500)
       .json(
         JsonResposeError(
-          error.message || "An error occurred while processing your request."
-        )
+          error.message || "An error occurred while processing your request.",
+        ),
       );
   }
 });
@@ -1742,7 +1840,7 @@ router.put("/update_liquidation_notification", async (req, res) => {
     let update_liquidation_sql = UpdateStatement(
       Liquidations.liquidation.tablename,
       [Liquidations.liquidation.selectOptionsColumn.notification],
-      [Liquidations.liquidation.selectOptionsColumn.id]
+      [Liquidations.liquidation.selectOptionsColumn.id],
     );
     await Update(update_liquidation_sql, updateData);
 
