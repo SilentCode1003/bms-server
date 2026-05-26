@@ -1239,6 +1239,7 @@ router.put("/update_liquidation", async (req, res) => {
         timestamp: new Date().toISOString(),
       });
 
+      console.log("");
       if (status === "approved") {
         let data = [status, 1, id];
         let update_sql = UpdateStatement(
