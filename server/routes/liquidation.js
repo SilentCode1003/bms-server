@@ -78,12 +78,12 @@ const buildAccountingPayload = async (liquidationId) => {
     0,
   );
 
-  journal_entries.push({
-    account_id: "Cash On Hand",
-    responsibility_center: "Admin",
-    debit: 0,
-    credit: total_amount,
-  });
+  // journal_entries.push({
+  //   account_id: "Advances to Officers and Employees",
+  //   responsibility_center: "Admin",
+  //   debit: 0,
+  //   credit: total_amount,
+  // });
 
   return {
     success: true,
