@@ -235,33 +235,38 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
                                         WHERE mmm_from = ?
                                         AND mmm_to = ?
                                         AND mmm_mode_of_transportation = ?`,
-                                        [row.started_from, row.ended_to, row.li_mode_of_transportation]
+                                        [row.started_from, row.ended_to, row.mode_of_transportation]
                                 );
 
                                 let master = await Select(master_sql);
+                                console.log("MASTER", master);
                                 let min = master.length ? master[0].min : null;
                                 let max = master.length ? master[0].max : null;
                                 let is_red_flag = false;
                                 let status = "";
 
+console.log("rowssss", row.amount);
+console.log("max", max);
                                 // if (min !== null && max !== null) {
                                 //     if (row.amount < min || row.amount > max) {
                                 //         is_red_flag = true;
                                 //     }
                                 // }
 
-                                if (max !== null && row.amount > max) {
+                                if (max !== null && parseFloat(row.amount) > parseFloat(max)) {
                                         status = "MAXIMUM";
+                                        console.log("MAXIMUM");
                                 } else if (min !== null && row.amount < min) {
                                         status = "MINIMUM";
+                                        console.log("MINIMUM");
                                 }
-
+console.log("ROW", row, "MIN", min, "MAX", max);
                                 finalResult.push({
                                         ...row,
                                         status: status
                                 });
                         }
-                        // console.log(finalResult)
+                        console.log("FINAL RESULT", finalResult);
                         return res.status(200).json(finalResult);
                 }
 
