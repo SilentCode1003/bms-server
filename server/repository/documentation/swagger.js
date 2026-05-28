@@ -18,11 +18,11 @@ const swaggerOptions = {
         description: "Localhost",
       },
       {
-        url: "http://192.168.40.229:5013",
+        url: "http://192.168.40.241:5013",
         description: "Staging Server",
       },
       {
-        url: "http://192.168.40.229:5013",
+        url: "http://192.168.40.241:5013",
         description: "Development Server",
       },
       {
@@ -30,7 +30,7 @@ const swaggerOptions = {
         description: "UAT Server",
       },
       {
-        url: "http://192.168.40.229:5013",
+        url: "http://192.168.40.241:5013",
         description: "Auth Server",
       },
     ],
@@ -121,7 +121,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://192.168.40.229:5000
+ *       - url: http://192.168.40.241:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.

@@ -60,46 +60,32 @@ const buildAccountingPayload = async (liquidationId) => {
     const rawParticulars = item.particulars
       ? item.particulars.toString().trim()
       : "";
-    const account_id =
+    const coa_id =
       rawParticulars
         .replace(/^\s*[\d,]+(?:\s*-\s*[\d,]+)?\s*-\s*/i, "")
         .trim() || "N/A";
 
     return {
-      account_id,
+      db_name: null,
+      db_id: null,
+      coa_id: coa_id,
       responsibility_center: "Admin",
-      debit: parseFloat(item.amount) || 0,
-      credit: 0,
+      type: "debit",
+      amount: parseFloat(item.amount) || 0,
+      date: new Date().toISOString().slice(0, 10),
     };
   });
 
-  const total_amount = journal_entries.reduce(
-    (sum, entry) => sum + (parseFloat(entry.debit) || 0),
-    0,
-  );
-
-  // journal_entries.push({
-  //   account_id: "Advances to Officers and Employees",
-  //   responsibility_center: "Admin",
-  //   debit: 0,
-  //   credit: total_amount,
-  // });
-
-  return {
-    success: true,
-    data: {
-      document_reference: "",
-      posting_date: new Date().toISOString().slice(0, 10),
-      remarks: `Auto-generated allocation breakdown from checked liquidation ${liquidationId}.`,
-      total_amount,
-      created_by: "Admin",
-      adjustment_attachments: [],
-      journal_entries,
-    },
-  };
+  return journal_entries;
 };
 
 const sendAccountingPayload = async (payload) => {
+  console.log(
+    "Accounting payload send attempt",
+    process.env.ACCOUNTING_LINK,
+    Array.isArray(payload) ? payload.length : 1,
+  );
+
   if (!process.env.ACCOUNTING_LINK) {
     console.warn(
       "ACCOUNTING_LINK is not configured, skipping accounting post.",
@@ -119,7 +105,15 @@ const sendAccountingPayload = async (payload) => {
     headers["x-tenant-db"] = process.env.TENANT_DB;
   }
 
-  return axios.post(process.env.ACCOUNTING_LINK, payload, { headers });
+  const response = await axios.post(process.env.ACCOUNTING_LINK, payload, {
+    headers,
+  });
+  console.log(
+    "Accounting payload post result",
+    response.status,
+    response.data && response.data.success ? "success" : "response",
+  );
+  return response;
 };
 
 // const processReceiptImage = async (base64Image, imageIndex) => {
