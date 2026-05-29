@@ -34,7 +34,7 @@ module.exports = router;
 router.get('/getmode_of_transportation', async (req, res) => {
     try {
         const { searchValue, offset, limit } = req.query;
-        console.log(req.query);
+
         let limitValue =
             limit && limit !== "0" && limit !== "-1" && limit !== ""
                 ? parseInt(limit)
@@ -95,7 +95,6 @@ router.get('/getmode_of_transportation', async (req, res) => {
 router.put('/update_mode_of_transportation', async (req, res) => {
     try {
         const { id, name, status } = req.body;
-        console.log("Request body:", req.body);
         let update_mode_of_transportation_sql = UpdateStatement(
             Masters.master_mode_of_transportation.tablename,
             [Masters.master_mode_of_transportation.selectOptionsColumn.status,
@@ -104,8 +103,6 @@ router.put('/update_mode_of_transportation', async (req, res) => {
             [Masters.master_mode_of_transportation.selectOptionsColumn.id]
         );
         let updateData = [[status, name, id]];
-        console.log("Update data:", updateData);
-        console.log("Update SQL:", update_mode_of_transportation_sql);
         await Update(update_mode_of_transportation_sql, updateData);
 
         return res.status(200).json({ message: 'Mode of transportation updated successfully' });

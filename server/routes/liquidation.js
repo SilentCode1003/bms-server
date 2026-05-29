@@ -80,11 +80,7 @@ const buildAccountingPayload = async (liquidationId) => {
 };
 
 const sendAccountingPayload = async (payload) => {
-  console.log(
-    "Accounting payload send attempt",
-    process.env.ACCOUNTING_LINK,
-    Array.isArray(payload) ? payload.length : 1,
-  );
+
 
   if (!process.env.ACCOUNTING_LINK) {
     console.warn(
@@ -108,11 +104,6 @@ const sendAccountingPayload = async (payload) => {
   const response = await axios.post(process.env.ACCOUNTING_LINK, payload, {
     headers,
   });
-  console.log(
-    "Accounting payload post result",
-    response.status,
-    response.data && response.data.success ? "success" : "response",
-  );
   return response;
 };
 
@@ -337,7 +328,6 @@ module.exports = router;
 
 router.get("/getcash_liquidation", async (req, res) => {
   const { status, employee_id } = req.query;
-  console.log(".env.local", process.env.ACCOUNTING_LINK);
   try {
     async function ProcessData() {
       let whereConditions = [];
@@ -878,7 +868,6 @@ router.post("/create_liquidation", async (req, res) => {
     const liquidation_id = liquidationResult[0].id;
 
     if (!liquidation_id) {
-      console.log("Failed to insert liquidation");
       return res
         .status(400)
         .json(JsonResposeError("Failed to insert liquidation"));
@@ -1017,12 +1006,7 @@ router.post("/create_liquidation", async (req, res) => {
         );
 
         const bulkRes = await Insert(itemsInsertSql, itemsData);
-        console.log(
-          "Bulk inserted liquidation items, insertId:",
-          bulkRes[0]?.id,
-          "affectedRows:",
-          itemsData.length,
-        );
+
       }
 
       // const select_red_flags_sql = SelectStatement(`
@@ -1826,7 +1810,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
 router.put("/update_liquidation_notification", async (req, res) => {
   try {
     const { id, notification } = req.body;
-    console.log(req.body);
+
     if (!id || notification === undefined) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }

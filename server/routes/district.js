@@ -181,7 +181,6 @@ router.post("/createdistrict_excel", upload.single('file'), async (req, res) => 
       `);
       const check_result = await Select(check_sql);
       if (check_result.length > 0) {
-        console.log(`Skipping duplicate store: ${store_no}`);
         continue;
       }
       const insert_data = [[store_no, store_name, region, city_province, status]];

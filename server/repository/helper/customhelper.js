@@ -30,7 +30,7 @@ exports.DeleteFile = (file) => {
   try {
     fs.unlinkSync(file);
 
-    console.log("File is deleted.");
+    // console.log("File is deleted.");
   } catch (error) {
     console.log(error);
   }

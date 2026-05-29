@@ -267,7 +267,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
 router.get("/getexisting_cash_request", async (req, res) => {
   try {
     const { id, notification } = req.query;
-    console.log(id, notification);
+
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
@@ -289,7 +289,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
         [id]
       );
       let result = await Select(select_liquidation_sql);
-      console.log(result);
+
       return res.status(200).json(result);
     }
     await ProcessData();
@@ -311,7 +311,6 @@ router.post("/createcash_request", async (req, res) => {
       amount,
       requested_by,
     } = req.body;
-    console.log(req.body)
     if (
       !description ||
       !team_lead ||
@@ -488,7 +487,7 @@ router.put("/undo_cash_request", async (req, res) => {
 router.put("/updatecash_request", async (req, res) => {
   try {
     const { status, id, remarks, updated_by, cash_voucher } = req.body;
-    console.log(req.body);
+
     // if(req.body){
     //   console.log("No data provided.")
     //   return res.status(400).json({
@@ -736,7 +735,7 @@ router.put("/update_cash_request_rejected", async (req, res) => {
 router.put("/updatecash_request_notification", async (req, res) => {
   try {
     const { id, notification } = req.body;
-    console.log(req.body);
+
     if (!id || notification === undefined) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }

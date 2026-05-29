@@ -168,7 +168,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
            LIMIT ${limitValue} OFFSET ${offsetValue}`
                 );
             } let result = await Select(select_district_sql);
-            console.log(result)
+
             return res.status(200).json(result);
         }
 
@@ -182,7 +182,7 @@ router.get('/getred_flags_by_search', async (req, res) => {
 router.put('/update_red_flags_approval', async (req, res) => {
     try {
         const { id, status, updated_by } = req.body;
-        console.log(req.body)
+
         let currentDate = GetCurrentDate();
 
         if (status === "APPLIED") {
@@ -193,9 +193,7 @@ router.put('/update_red_flags_approval', async (req, res) => {
             );
             let approved_red_flags_result = await Select(select_approved_red_flags_sql);
             const { rf_id, rf_from, rf_to, rf_mode_of_transportation, rf_amount, rf_status } = approved_red_flags_result[0];
-            console.log("from", rf_from)
-            console.log("to", rf_to)
-            console.log("mode_of_transportation", rf_mode_of_transportation)
+
             let select_red_flag_sql = SelectStatement(
                 `SELECT
                 rf_id
@@ -210,7 +208,6 @@ router.put('/update_red_flags_approval', async (req, res) => {
             if (select_red_flag_result.length > 0) {
                 let red_flag_id = select_red_flag_result[0].rf_id;
 
-                console.log("redflag_id", select_red_flag_result);
 
 
                 let update_red_flag_pending_sql = UpdateStatement(
@@ -250,12 +247,10 @@ router.put('/update_red_flags_approval', async (req, res) => {
             ];
 
             let update_apllied_red_flags_result = await Update(update_apllied_red_flags_sql, update_apllied_red_flagsData);
-            console.log("update_apllied_red_flagsData", update_apllied_red_flags_result);
 
 
 
             if (rf_status === "MAXIMUM") {
-                console.log("MAXIMUM");
                 let update_min_max_sql = UpdateStatement(
                     Masters.master_min_max.tablename,
                     [
@@ -274,7 +269,6 @@ router.put('/update_red_flags_approval', async (req, res) => {
 
                 await Update(update_min_max_sql, update_min_maxData);
             } else {
-                console.log("MINIMUM");
                 let update_min_max_sql = UpdateStatement(
                     Masters.master_min_max.tablename,
                     [

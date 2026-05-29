@@ -117,7 +117,7 @@ const io = new Server(server, {
 app.set("io", io);
 
 io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
+  // console.log("Client connected:", socket.id);
 
   socket.on("cash_request_updated", (data) => {
     try {
@@ -153,7 +153,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+    // console.log("Client disconnected:", socket.id);
   });
 });
 

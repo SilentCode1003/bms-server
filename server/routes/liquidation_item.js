@@ -72,7 +72,6 @@ router.get('/getliquidation_item', async (req, res) => {
 
 router.get('/getliquidation_item_stats', async (req, res) => {
         try {
-                console.log("getliquidation_item_stats");
                 async function ProcessData() {
                         let select_liquidation_item_stats_sql = SelectStatement(
                                 `WITH counted AS (
@@ -124,7 +123,6 @@ router.get('/getliquidation_item_stats', async (req, res) => {
 
 router.get('/getliquidation_item_started_from', async (req, res) => {
         try {
-                console.log("getliquidation_item_started_from");
                 async function ProcessData() {
                         let select_liquidation_item_stats_sql = SelectStatement(
                                 `SELECT 
@@ -150,7 +148,6 @@ router.get('/getliquidation_item_started_from', async (req, res) => {
 
 router.get('/getliquidation_item_ended_to', async (req, res) => {
         try {
-                console.log("getliquidation_item_ended_to");
                 async function ProcessData() {
                         let select_liquidation_item_stats_sql = SelectStatement(
                                 `SELECT 
@@ -176,7 +173,6 @@ router.get('/getliquidation_item_ended_to', async (req, res) => {
 
 router.get('/getliquidation_item_mode_of_transportation', async (req, res) => {
         try {
-                console.log("getliquidation_item_mode_of_transportation");
                 async function ProcessData() {
                         let select_liquidation_item_stats_sql = SelectStatement(
                                 `SELECT 
@@ -239,14 +235,10 @@ router.get('/getliquidation_item_by_id', async (req, res) => {
                                 );
 
                                 let master = await Select(master_sql);
-                                console.log("MASTER", master);
                                 let min = master.length ? master[0].min : null;
                                 let max = master.length ? master[0].max : null;
                                 let is_red_flag = false;
                                 let status = "";
-
-console.log("rowssss", row.amount);
-console.log("max", max);
                                 // if (min !== null && max !== null) {
                                 //     if (row.amount < min || row.amount > max) {
                                 //         is_red_flag = true;
@@ -255,18 +247,14 @@ console.log("max", max);
 
                                 if (max !== null && parseFloat(row.amount) > parseFloat(max)) {
                                         status = "MAXIMUM";
-                                        console.log("MAXIMUM");
                                 } else if (min !== null && row.amount < min) {
                                         status = "MINIMUM";
-                                        console.log("MINIMUM");
                                 }
-console.log("ROW", row, "MIN", min, "MAX", max);
                                 finalResult.push({
                                         ...row,
                                         status: status
                                 });
                         }
-                        console.log("FINAL RESULT", finalResult);
                         return res.status(200).json(finalResult);
                 }
 
@@ -403,7 +391,7 @@ router.get('/getstore_routes', async (req, res) => {
 router.put("/update_liquidation_item", async (req, res) => {
         try {
                 const { id, particulars } = req.body;
-                console.log(req.body);
+
                 if (!id || particulars === undefined) {
                         return res.status(400).json(JsonResposeError("Missing required fields"));
                 }

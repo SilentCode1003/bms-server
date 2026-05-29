@@ -32,7 +32,6 @@ module.exports = router;
 
 router.get('/getnotification', async (req, res) => {
     const { user, employee_id } = req.query;
-    console.log("USER DATA", req.query);
     try {
         let pending_cash_request_result = [];
         let approved_cash_request_result = [];

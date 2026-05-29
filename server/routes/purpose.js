@@ -34,7 +34,7 @@ module.exports = router;
 router.get('/getpurpose', async (req, res) => {
     try {
         const { searchValue, offset, limit, status } = req.query;
-        console.log(req.query);
+
         let limitValue =
             limit && limit !== "0" && limit !== "-1" && limit !== ""
                 ? parseInt(limit)
@@ -115,7 +115,7 @@ router.get('/getpurpose', async (req, res) => {
 router.put('/update_purpose', async (req, res) => {
     try {
         const { id, code, name, type, description, status } = req.body;
-        console.log("Request body:", req.body);
+
         let update_purpose_sql = UpdateStatement(
             Masters.master_purpose.tablename,
             [Masters.master_purpose.selectOptionsColumn.code,

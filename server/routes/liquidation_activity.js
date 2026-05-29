@@ -59,7 +59,7 @@ router.get('/getliquidation_activity', async (req, res) => {
                         );
 
                         let result = await Select(select_liquidation_activity_sql);
-console.log(result)
+
                         return res.status(200).json(result);
                 }
 
