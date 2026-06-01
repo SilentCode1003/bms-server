@@ -402,6 +402,7 @@ router.get("/getcash_liquidation", async (req, res) => {
       );
 
       let result = await Select(select_liquidation_sql);
+
       emitLiquidationUpdate(req, "fetched", {
         event: "liquidation_fetched",
         status: "success",
@@ -780,6 +781,7 @@ router.post("/create_liquidation", async (req, res) => {
     let action = "PREPARED";
     let created_at = GetCurrentDatetime();
 
+    console.log("RECEIPTS", receipts);
     if (amount_obtained === 0) {
       return res.status(400).json(JsonResposeError("amount obtained is zero"));
     }
