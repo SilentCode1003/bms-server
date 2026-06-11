@@ -18,11 +18,11 @@ const swaggerOptions = {
         description: "Localhost",
       },
       {
-        url: "http://192.168.40.248:5013",
+        url: "http://192.168.40.249:5013",
         description: "Staging Server",
       },
       {
-        url: "http://192.168.40.248:5013",
+        url: "http://192.168.40.249:5013",
         description: "Development Server",
       },
       {
@@ -30,7 +30,7 @@ const swaggerOptions = {
         description: "UAT Server",
       },
       {
-        url: "http://192.168.40.248:5013",
+        url: "http://192.168.40.249:5013",
         description: "Auth Server",
       },
     ],
@@ -121,7 +121,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://192.168.40.248:5000
+ *       - url: http://localhost:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
@@ -2727,6 +2727,84 @@ module.exports = swaggerDocs;
  *                   step_order:
  *                     type: integer
  *                     description: Step order for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_item/getstore_routes_from:
+ *   get:
+ *     summary: Get store route chain starting from a specific location
+ *     description: |
+ *       Retrieves all connected routes for a given store starting from the specified location.
+ *       The endpoint uses a recursive query to follow route connections from `li_from` to `li_to`
+ *       until no further routes are found. Cyclic routes are automatically prevented.
+ *     tags:
+ *       - Liquidation Item
+ *     parameters:
+ *       - name: store_name
+ *         in: query
+ *         required: true
+ *         description: Store name to retrieve routes from
+ *         schema:
+ *           type: string
+ *           example: MAIN STORE
+ *       - name: start_location
+ *         in: query
+ *         required: true
+ *         description: Starting location of the route chain
+ *         schema:
+ *           type: string
+ *           example: WAREHOUSE A
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved route chain from the specified location
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   li_from:
+ *                     type: string
+ *                     description: Starting location of the route segment
+ *                     example: WAREHOUSE A
+ *                   li_to:
+ *                     type: string
+ *                     description: Destination location of the route segment
+ *                     example: STORE B
+ *                   li_mode_of_transportation:
+ *                     type: string
+ *                     description: Transportation method used for the route segment
+ *                     example: TRUCK
+ *             example:
+ *               - li_from: WAREHOUSE A
+ *                 li_to: HUB 1
+ *                 li_mode_of_transportation: TRUCK
+ *               - li_from: HUB 1
+ *                 li_to: STORE B
+ *                 li_mode_of_transportation: VAN
+ *               - li_from: STORE B
+ *                 li_to: STORE C
+ *                 li_mode_of_transportation: MOTORCYCLE
+ *
+ *       400:
+ *         description: Missing required query parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: store_name and start_location are required
+ *
  *       500:
  *         description: Internal Server Error
  *         content:

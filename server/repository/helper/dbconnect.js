@@ -43,7 +43,7 @@ exports.Select = (query) => {
 exports.Update = (query, data) => {
   return new Promise((resolve, reject) => {
     const flatData = Array.isArray(data[0]) ? data[0] : data;
-    
+
     connection.query(query, flatData, (err, result) => {
       if (err) {
         console.log("Error running query:", err);
@@ -70,7 +70,6 @@ exports.Insert = (query, data) => {
   });
 };
 
-
 exports.Delete = (query, params = []) => {
   return new Promise((resolve, reject) => {
     const flatParams = Array.isArray(params[0]) ? params[0] : params;
@@ -88,3 +87,4 @@ exports.Delete = (query, params = []) => {
   });
 };
 
+exports.connection = connection;
