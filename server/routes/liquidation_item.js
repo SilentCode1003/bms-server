@@ -238,7 +238,7 @@ router.get("/getliquidation_item_by_id", async (req, res) => {
     async function ProcessData() {
       let select_liquidation_item_sql = SelectStatement(
         `SELECT
-                                li_id AS id,;
+                                li_id AS id,
                                 li_liquidation_id AS liquidation_id,
                                 li_date AS date,
                                 li_rt AS rt,
