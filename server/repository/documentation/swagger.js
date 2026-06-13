@@ -14,6 +14,10 @@ const swaggerOptions = {
     },
     servers: [
       {
+        url: "/",
+        description: "Current host and port",
+      },
+      {
         url: "http://localhost:5013",
         description: "Localhost",
       },
@@ -2669,6 +2673,61 @@ module.exports = swaggerDocs;
  *                   mode_of_transportation:
  *                     type: string
  *                     description: Distinct mode of transportation for liquidation items
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /liquidation_item/getliquidation_start_location:
+ *   get:
+ *     summary: Get distinct li_from values for liquidation items
+ *     description: Retrieve a list of distinct trimmed li_from values from liquidation_item
+ *     tags:
+ *       - Liquidation Item
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of results to return
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Number of results to skip
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           default: ""
+ *         description: Search term to filter `li_from` (substring match, case-insensitive)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved distinct li_from values
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 limit:
+ *                   type: integer
+ *                 offset:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       li_from:
+ *                         type: string
+ *                         description: Distinct trimmed li_from value from liquidation_item
  *       500:
  *         description: Internal Server Error
  *         content:

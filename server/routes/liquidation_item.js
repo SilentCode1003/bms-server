@@ -204,6 +204,33 @@ router.get("/getliquidation_item_mode_of_transportation", async (req, res) => {
   }
 });
 
+router.get("/getliquidation_start_location", async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(1000, Number(req.query.limit) || 50));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const search = (req.query.search || "").toString().trim();
+
+    async function ProcessData() {
+      // build WHERE clause with optional search (escaped)
+      let whereClause = "WHERE COALESCE(TRIM(li_from), '') NOT IN ('N/A', 'NA', 'na', 'n/a')";
+      if (search) {
+        const escaped = connection.escape('%' + search + '%');
+        whereClause += ` AND TRIM(li_from) LIKE ${escaped}`;
+      }
+
+      const select_liquidation_item_from_sql = `SELECT DISTINCT\n          TRIM(li_from) AS li_from\n        FROM liquidation_item\n        ${whereClause}\n        LIMIT ${limit} OFFSET ${offset}`;
+
+      let result = await Select(select_liquidation_item_from_sql);
+      return res.status(200).json({ limit, offset, search, data: result });
+    }
+
+    await ProcessData();
+  } catch (error) {
+    console.error("Error fetching liquidation item from values:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+});
+
 router.get("/getliquidation_item_by_id", async (req, res) => {
   try {
     const { id } = req.query;
@@ -211,7 +238,7 @@ router.get("/getliquidation_item_by_id", async (req, res) => {
     async function ProcessData() {
       let select_liquidation_item_sql = SelectStatement(
         `SELECT
-                                li_id AS id,
+                                li_id AS id,;
                                 li_liquidation_id AS liquidation_id,
                                 li_date AS date,
                                 li_rt AS rt,
@@ -295,9 +322,7 @@ router.get("/getstore_routes", async (req, res) => {
                                 FROM liquidation_item 
                                 WHERE li_store_name = '${store_name}'
                         )
-
                         UNION ALL
-
                         SELECT 
                                 li.li_store_name,
                                 REPLACE(li.li_from, ' ', '') AS clean_from,
@@ -406,20 +431,28 @@ router.get("/getstore_routes_from", async (req, res) => {
     }
 
     async function ProcessData() {
+      // 1. Clean inputs and use parameterized queries for 'LIKE' to fix security & spaces
+      const cleanStoreName = store_name.trim().replace(/\s+/g, " ");
+      const cleanStartLocation = start_location.trim().replace(/\s+/g, " ");
+
       const sql = `
         SELECT DISTINCT 
           TRIM(li_from) AS li_from,
           TRIM(li_to) AS li_to,
           TRIM(li_mode_of_transportation) AS li_mode_of_transportation
         FROM liquidation_item
-        WHERE li_store_name = '${store_name}'
+        WHERE li_store_name LIKE ?
       `;
 
-      const [rows] = await connection.promise().query(sql);
+      const [rows] = await connection
+        .promise()
+        .query(sql, [`%${cleanStoreName}%`]);
+      console.log("ROWSSS Fetched:", rows.length);
 
       if (!rows || rows.length === 0) {
+        console.log("No routes found for store in DB:", cleanStoreName);
         return res.status(404).json({
-          error: `No routes found for store '${store_name}'`,
+          error: `No routes found for store '${cleanStoreName}'`,
         });
       }
 
@@ -440,7 +473,22 @@ router.get("/getstore_routes_from", async (req, res) => {
 
       // BFS — find ALL complete paths from start_location to store_name
       const completePaths = [];
-      const queue = [[{ from: null, to: start_location, mode: null }]];
+
+      // FIX 1: We also apply "fuzzy/partial matching" to the starting location node initialization
+      const graphKeys = Object.keys(graph);
+      const actualStartNodes = graphKeys.filter((key) =>
+        key.toLowerCase().includes(cleanStartLocation.toLowerCase()),
+      );
+
+      // If no close starting node is found in the graph keys, fallback to the literal string
+      if (actualStartNodes.length === 0) {
+        actualStartNodes.push(cleanStartLocation);
+      }
+
+      const queue = [];
+      for (const startNode of actualStartNodes) {
+        queue.push([{ from: null, to: startNode, mode: null }]);
+      }
 
       while (queue.length > 0) {
         const path = queue.shift();
@@ -449,8 +497,9 @@ router.get("/getstore_routes_from", async (req, res) => {
         // Safety cap
         if (path.length > 20) continue;
 
-        // Reached destination — save this complete path
-        if (current === store_name) {
+        // FIX 2: Instead of an exact match (===), check if the current node
+        // contains your target search store_name (Case-Insensitive)
+        if (current.toLowerCase().includes(cleanStoreName.toLowerCase())) {
           completePaths.push(path.slice(1)); // remove dummy start node
           continue;
         }
@@ -469,14 +518,19 @@ router.get("/getstore_routes_from", async (req, res) => {
       }
 
       if (completePaths.length === 0) {
+        console.log(
+          "No route found from:",
+          cleanStartLocation,
+          "to:",
+          cleanStoreName,
+        );
         return res.status(404).json({
-          error: `No route found from '${start_location}' to '${store_name}'`,
+          error: `No route found from '${cleanStartLocation}' to '${cleanStoreName}'`,
         });
       }
 
       // Collect only edges that appear in at least one complete path
-      // Use a Set to deduplicate
-      const validEdges = new Map(); // key = "from|to|mode", value = { li_from, li_to, li_mode_of_transportation, step }
+      const validEdges = new Map();
 
       for (const path of completePaths) {
         path.forEach((leg, index) => {

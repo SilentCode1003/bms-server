@@ -43,7 +43,20 @@ if (!fs.existsSync(errorViewPath)) {
   fs.writeFileSync(errorViewPath, "h1= message\npre #{error.stack}");
 }
 
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN || "*";
+const corsValues = corsOrigin
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOrigins = corsValues.includes("*") ? "*" : corsValues;
+
+const corsOptions = {
+  origin: corsOrigins,
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+};
+
+app.use(cors(corsOptions)); // Pass the options here
+
 app.use(morgan("dev"));
 app.use(
   morgan("combined", {
