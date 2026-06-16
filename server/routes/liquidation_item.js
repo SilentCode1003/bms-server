@@ -211,7 +211,6 @@ router.get("/getliquidation_start_location", async (req, res) => {
     const search = (req.query.search || "").toString().trim();
 
     async function ProcessData() {
-      // build WHERE clause with optional search (escaped)
       let whereClause = "WHERE COALESCE(TRIM(li_from), '') NOT IN ('N/A', 'NA', 'na', 'n/a')";
       if (search) {
         const escaped = connection.escape('%' + search + '%');

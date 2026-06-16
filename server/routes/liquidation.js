@@ -363,26 +363,7 @@ router.get("/getcash_liquidation", async (req, res) => {
                     l.l_amount_expended as amount_expended,
                     l.l_reimburse_return as reimburse_return,
                     l.l_created_date as created_date,
-                    l.l_status as status,
-                    (
-                        SELECT JSON_ARRAYAGG(
-                            JSON_OBJECT(
-                                'id', li.li_id,
-                                'liquidation_id', li.li_liquidation_id,
-                                'date', li.li_date,
-                                'rt', li.li_rt,
-                                'store', li.li_store_name,
-                                'particulars', li.li_particulars,
-                                'reason', li.li_reason,
-                                'from', li.li_from,
-                                'to', li.li_to,
-                                'mode_of_transportation', li.li_mode_of_transportation,
-                                'amount', li.li_amount
-                            )
-                        )
-                        FROM liquidation_item li
-                        WHERE li.li_liquidation_id = l.l_id
-                    ) AS liquidation_items
+                    l.l_status as status
                 FROM liquidation l
                 INNER JOIN cash_request cr ON l.l_cr_reference_id = cr.cr_reference_id
                 ${whereClause}
