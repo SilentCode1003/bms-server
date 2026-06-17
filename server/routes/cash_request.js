@@ -650,6 +650,14 @@ router.put("/updatecash_request", async (req, res) => {
             );
             await Insert(wallet_activity_insert_sql, wallet_activityData);
           }
+        } else {
+          return res
+            .status(400)
+            .json(
+              JsonResposeError(
+                "Cash request is already completed. Cannot update again.",
+              ),
+            );
         }
         return res.status(200).json(cash_request);
       } else if (status === "rejected") {
