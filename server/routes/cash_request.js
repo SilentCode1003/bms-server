@@ -97,17 +97,18 @@ router.get("/getcash_request", async (req, res) => {
               FROM cash_request cr
               ${whereClause}
               GROUP BY cr.cr_id
-              ${status && status.toLowerCase() === "rejected"
-          ? `HAVING 
+              ${
+                status && status.toLowerCase() === "rejected"
+                  ? `HAVING 
                         EXISTS (
                           SELECT 1 
                           FROM cash_request_activity cra1
                           WHERE cra1.cra_cash_request_id = cr.cr_id
                           AND cra1.cra_action = 'REQUESTED'
                         )`
-          : ""
-        }
-              ORDER BY cr.cr_id DESC`
+                  : ""
+              }
+              ORDER BY cr.cr_id DESC`,
       );
 
       let result = await Select(select_cash_request_sql);
@@ -180,21 +181,23 @@ router.get("/getapproved_cash_request", async (req, res) => {
                                     ) AS cash_request_activities
                               
                                 FROM cash_request cr
-                                ${status
-          ? `WHERE cr.cr_status = '${status}'`
-          : ""
-        }
+                                ${
+                                  status
+                                    ? `WHERE cr.cr_status = '${status}'`
+                                    : ""
+                                }
                                 GROUP BY cr.cr_id
-                                ${status && status.toLowerCase() === "rejected"
-          ? `HAVING 
+                                ${
+                                  status && status.toLowerCase() === "rejected"
+                                    ? `HAVING 
                                           (SELECT COUNT(DISTINCT cra_act.cra_action) 
                                            FROM cash_request_activity cra_act 
                                            WHERE cra_act.cra_cash_request_id = cr.cr_id 
                                            AND cra_act.cra_action IN ('REQUESTED','APPROVED','REJECTED')
                                           ) = 3`
-          : ""
-        }
-                                ORDER BY cr.cr_id DESC`
+                                    : ""
+                                }
+                                ORDER BY cr.cr_id DESC`,
       );
 
       let result = await Select(select_cash_request_sql);
@@ -235,7 +238,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
         cr_id AS id
         FROM cash_request cr
         WHERE cr_employee_id = ?`,
-        [employee_id]
+        [employee_id],
       );
 
       let select_cash_request_result = await Select(select_cash_request_sql);
@@ -250,7 +253,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
         LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
         WHERE cr_employee_id = ?
         AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected'))`,
-        [employee_id]
+        [employee_id],
       );
 
       let result = await Select(select_liquidation_sql);
@@ -286,7 +289,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
         FROM cash_request cr
         LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
         WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
-        [id]
+        [id],
       );
       let result = await Select(select_liquidation_sql);
 
@@ -337,12 +340,18 @@ router.post("/createcash_request", async (req, res) => {
         LEFT JOIN liquidation ON cr_reference_id = l_cr_reference_id
         WHERE cr_employee_id = ?
         AND (isnull(l_status) OR l_status IN ('pending', 'approved', 'rejected', 'incomplete'))`,
-      [employee_id]
+      [employee_id],
     );
 
     let result2 = await Select(select_liquidation_sql);
     if (result2.length > 0) {
-      return res.status(400).json(JsonResposeError("You have an active cash request. Please liquidate it before submitting a new one."));
+      return res
+        .status(400)
+        .json(
+          JsonResposeError(
+            "You have an active cash request. Please liquidate it before submitting a new one.",
+          ),
+        );
     }
 
     // let wallet_insert_sql = InsertStatement(
@@ -351,7 +360,6 @@ router.post("/createcash_request", async (req, res) => {
     //   Masters.master_wallet.insertColumns
     // );
     // await Insert(wallet_insert_sql, [[employee_id, 0, 0]]);
-
 
     let status = "PENDING";
     let request_date = GetCurrentDatetime();
@@ -362,7 +370,7 @@ router.post("/createcash_request", async (req, res) => {
       let maxReferenceIdQuery = SelectStatement(
         `SELECT MAX(CAST(SUBSTRING_INDEX(cr_reference_id, '-', -1) AS UNSIGNED)) AS max_sequence 
                                   FROM cash_request 
-                                  WHERE cr_reference_id LIKE CONCAT('CR-', DATE_FORMAT(NOW(), '%y%m%d'), '-%')`
+                                  WHERE cr_reference_id LIKE CONCAT('CR-', DATE_FORMAT(NOW(), '%y%m%d'), '-%')`,
       );
       let maxReferenceIdResult = await Select(maxReferenceIdQuery);
       let maxSequence = maxReferenceIdResult[0]?.max_sequence || 0;
@@ -389,17 +397,17 @@ router.post("/createcash_request", async (req, res) => {
         ],
       ];
 
-      emitCashRequestUpdate(req, 'creating', {
-        event: 'cash_request_creating',
-        status: 'in_progress',
+      emitCashRequestUpdate(req, "creating", {
+        event: "cash_request_creating",
+        status: "in_progress",
         reference_id,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       let insert_sql = InsertStatement(
         CashRequests.cash_request.tablename,
         CashRequests.cash_request.prefix,
-        CashRequests.cash_request.insertColumns
+        CashRequests.cash_request.insertColumns,
       );
 
       let cashRequestResult = await Insert(insert_sql, data);
@@ -414,7 +422,7 @@ router.post("/createcash_request", async (req, res) => {
       let activity_insert_sql = InsertStatement(
         CashRequests.cash_request_activity.tablename,
         CashRequests.cash_request_activity.prefix,
-        CashRequests.cash_request_activity.insertColumns
+        CashRequests.cash_request_activity.insertColumns,
       );
       await Insert(activity_insert_sql, activityData);
 
@@ -437,7 +445,7 @@ router.put("/undo_cash_request", async (req, res) => {
     }
     const checkSql = SelectStatement(
       `SELECT cr_id, cr_reference_id FROM cash_request WHERE cr_id = ? LIMIT 1`,
-      [cash_request_id]
+      [cash_request_id],
     );
 
     const existing = await Select(checkSql);
@@ -462,7 +470,7 @@ router.put("/undo_cash_request", async (req, res) => {
         CashRequests.cash_request.selectOptionsColumn.status,
         CashRequests.cash_request.selectOptionsColumn.notification,
       ],
-      [CashRequests.cash_request.selectOptionsColumn.id]
+      [CashRequests.cash_request.selectOptionsColumn.id],
     );
 
     await Update(update_sql, data);
@@ -500,7 +508,7 @@ router.put("/updatecash_request", async (req, res) => {
     }
     let select_employee_id = SelectStatement(
       `SELECT cr_employee_id, cr_amount FROM cash_request WHERE cr_id = ?`,
-      [id]
+      [id],
     );
     let select_employee_id_result = await Select(select_employee_id);
     let employee_id =
@@ -519,7 +527,7 @@ router.put("/updatecash_request", async (req, res) => {
             CashRequests.cash_request.selectOptionsColumn.status,
             CashRequests.cash_request.selectOptionsColumn.notification,
           ],
-          [CashRequests.cash_request.selectOptionsColumn.id]
+          [CashRequests.cash_request.selectOptionsColumn.id],
         );
         await Update(update_sql, [data]);
 
@@ -527,11 +535,11 @@ router.put("/updatecash_request", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           CashRequests.cash_request_activity.tablename,
           CashRequests.cash_request_activity.prefix,
-          CashRequests.cash_request_activity.insertColumns
+          CashRequests.cash_request_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
       } else if (status === "completed") {
-        let data = [status, 1, cash_voucher, id];
+        let data = ["completed", 1, cash_voucher, id];
         let update_sql = UpdateStatement(
           CashRequests.cash_request.tablename,
           [
@@ -539,7 +547,7 @@ router.put("/updatecash_request", async (req, res) => {
             CashRequests.cash_request.selectOptionsColumn.notification,
             CashRequests.cash_request.selectOptionsColumn.cv_number,
           ],
-          [CashRequests.cash_request.selectOptionsColumn.id]
+          [CashRequests.cash_request.selectOptionsColumn.id],
         );
         await Update(update_sql, data);
 
@@ -547,7 +555,7 @@ router.put("/updatecash_request", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           CashRequests.cash_request_activity.tablename,
           CashRequests.cash_request_activity.prefix,
-          CashRequests.cash_request_activity.insertColumns
+          CashRequests.cash_request_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
 
@@ -560,12 +568,12 @@ router.put("/updatecash_request", async (req, res) => {
             FROM cash_request
             WHERE cr_id = ?
           `,
-          [id]
+          [id],
         );
         let cash_request = await Select(select_cash_request);
         let walletData = SelectStatement(
           `SELECT * FROM master_wallet WHERE mw_employee_id = ?`,
-          [employee_id]
+          [employee_id],
         );
         let walletResult = await Select(walletData);
 
@@ -587,39 +595,48 @@ router.put("/updatecash_request", async (req, res) => {
               Masters.master_wallet.selectOptionsColumn.previous_amount,
               Masters.master_wallet.selectOptionsColumn.current_amount,
             ],
-            [Masters.master_wallet.selectOptionsColumn.employee_id]
+            [Masters.master_wallet.selectOptionsColumn.employee_id],
           );
           let result = await Update(wallet_update_sql, [wallet_update_data]);
 
-            let wallet_id = walletResult[0].mw_id;
-
-            let wallet_activityData = [
-              [wallet_id, `Updated wallet balance from cash request to ${Number(walletResult[0]?.mw_current_amount) + Number(amount)} from ${walletResult[0]?.mw_current_amount} previously as ${walletResult[0]?.mw_previous_amount}`, created_at],
-            ];
-            let wallet_activity_insert_sql = InsertStatement(
-              Masters.master_wallet_activity.tablename,
-              Masters.master_wallet_activity.prefix,
-              Masters.master_wallet_activity.insertColumns
-            );
-            await Insert(wallet_activity_insert_sql, wallet_activityData);
-
-        } else {
-          let wallet_insert_sql = InsertStatement(
-            Masters.master_wallet.tablename,
-            Masters.master_wallet.prefix,
-            Masters.master_wallet.insertColumns
-          );
-          let walletResult = await Insert(wallet_insert_sql, [[employee_id, 0, amount]]);
-
-          let wallet_id = walletResult[0].id;
+          let wallet_id = walletResult[0].mw_id;
 
           let wallet_activityData = [
-            [wallet_id, `Added new wallet balance from cash request ${amount}`, created_at],
+            [
+              wallet_id,
+              `Updated wallet balance from cash request to ${Number(walletResult[0]?.mw_current_amount) + Number(amount)} from ${walletResult[0]?.mw_current_amount} previously as ${walletResult[0]?.mw_previous_amount}`,
+              created_at,
+            ],
           ];
           let wallet_activity_insert_sql = InsertStatement(
             Masters.master_wallet_activity.tablename,
             Masters.master_wallet_activity.prefix,
-            Masters.master_wallet_activity.insertColumns
+            Masters.master_wallet_activity.insertColumns,
+          );
+          await Insert(wallet_activity_insert_sql, wallet_activityData);
+        } else {
+          let wallet_insert_sql = InsertStatement(
+            Masters.master_wallet.tablename,
+            Masters.master_wallet.prefix,
+            Masters.master_wallet.insertColumns,
+          );
+          let walletResult = await Insert(wallet_insert_sql, [
+            [employee_id, 0, amount],
+          ]);
+
+          let wallet_id = walletResult[0].id;
+
+          let wallet_activityData = [
+            [
+              wallet_id,
+              `Added new wallet balance from cash request ${amount}`,
+              created_at,
+            ],
+          ];
+          let wallet_activity_insert_sql = InsertStatement(
+            Masters.master_wallet_activity.tablename,
+            Masters.master_wallet_activity.prefix,
+            Masters.master_wallet_activity.insertColumns,
           );
           await Insert(wallet_activity_insert_sql, wallet_activityData);
         }
@@ -633,7 +650,7 @@ router.put("/updatecash_request", async (req, res) => {
             CashRequests.cash_request.selectOptionsColumn.status,
             CashRequests.cash_request.selectOptionsColumn.notification,
           ],
-          [CashRequests.cash_request.selectOptionsColumn.id]
+          [CashRequests.cash_request.selectOptionsColumn.id],
         );
         await Update(update_sql, data);
 
@@ -643,7 +660,7 @@ router.put("/updatecash_request", async (req, res) => {
         let activity_insert_sql = InsertStatement(
           CashRequests.cash_request_activity.tablename,
           CashRequests.cash_request_activity.prefix,
-          CashRequests.cash_request_activity.insertColumns
+          CashRequests.cash_request_activity.insertColumns,
         );
         await Insert(activity_insert_sql, activityData);
       }
@@ -659,7 +676,14 @@ router.put("/updatecash_request", async (req, res) => {
 
 router.put("/update_cash_request_rejected", async (req, res) => {
   try {
-    const { cash_request_id, date, description, team_lead, amount, updated_by } = req.body;
+    const {
+      cash_request_id,
+      date,
+      description,
+      team_lead,
+      amount,
+      updated_by,
+    } = req.body;
     if (!cash_request_id) {
       return res.status(400).json(JsonResposeError("Missing cash_request_id"));
     }
@@ -703,7 +727,7 @@ router.put("/update_cash_request_rejected", async (req, res) => {
     await Delete(
       `DELETE FROM cash_request_activity 
                 WHERE cra_cash_request_id = ? AND cra_action IN ('REQUESTED', 'APPROVED', 'RECEIVED', 'REJECTED')`,
-      [cash_request_id]
+      [cash_request_id],
     );
 
     const activityData = [
@@ -712,18 +736,17 @@ router.put("/update_cash_request_rejected", async (req, res) => {
         "REQUESTED",
         "Cash request was updated after rejection",
         GetCurrentDatetime(),
-        updated_by
-      ]
+        updated_by,
+      ],
     ];
 
     const activityInsertSql = InsertStatement(
       CashRequests.cash_request_activity.tablename,
       CashRequests.cash_request_activity.prefix,
-      CashRequests.cash_request_activity.insertColumns
+      CashRequests.cash_request_activity.insertColumns,
     );
 
     await Insert(activityInsertSql, activityData);
-
 
     res.status(200).json(JsonResponseSuccess());
   } catch (error) {
@@ -744,7 +767,7 @@ router.put("/updatecash_request_notification", async (req, res) => {
     let update_sql = UpdateStatement(
       CashRequests.cash_request.tablename,
       [CashRequests.cash_request.selectOptionsColumn.notification],
-      [CashRequests.cash_request.selectOptionsColumn.id]
+      [CashRequests.cash_request.selectOptionsColumn.id],
     );
     await Update(update_sql, updateData);
 
