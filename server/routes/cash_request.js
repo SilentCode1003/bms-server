@@ -542,7 +542,7 @@ router.put("/updatecash_request", async (req, res) => {
         let data = ["completed", 1, cash_voucher, id];
         let select_completed = SelectStatement(
           `SELECT
-            cr_status as status,
+            cr_status as status
             FROM cash_request
             WHERE cr_id = ?
           `,
