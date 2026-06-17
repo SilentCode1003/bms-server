@@ -650,6 +650,7 @@ router.put("/updatecash_request", async (req, res) => {
             );
             await Insert(wallet_activity_insert_sql, wallet_activityData);
           }
+          return res.status(200).json(cash_request);
         } else {
           return res
             .status(400)
@@ -659,7 +660,6 @@ router.put("/updatecash_request", async (req, res) => {
               ),
             );
         }
-        return res.status(200).json(cash_request);
       } else if (status === "rejected") {
         let data = [[status, 1, id]];
         let update_sql = UpdateStatement(
