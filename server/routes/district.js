@@ -1,4 +1,4 @@
-var express = require('express');
+var express = require("express");
 const {
   JsonResposeError,
   JsonResponseData,
@@ -13,22 +13,24 @@ const {
 const { Masters } = require("../repository/model/masters");
 const { Select, Insert, Update } = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
-const { EncrypterString, DecrypterString } = require("../repository/helper/crytography");
-const jwt = require('jsonwebtoken');
-const ExcelJS = require('exceljs');
-const multer = require('multer');
+const {
+  EncrypterString,
+  DecrypterString,
+} = require("../repository/helper/crytography");
+const jwt = require("jsonwebtoken");
+const ExcelJS = require("exceljs");
+const multer = require("multer");
 const upload = multer();
 var router = express.Router();
 
-
 /* GET district page. */
-router.get('/', function (req, res, next) {
-  res.render('district', { title: 'Express' });
+router.get("/", function (req, res, next) {
+  res.render("district", { title: "Express" });
 });
 
 module.exports = router;
 
-router.get('/getdistrict', async (req, res) => {
+router.get("/getdistrict", async (req, res) => {
   try {
     async function ProcessData() {
       let select_district_sql = SelectStatement(
@@ -39,7 +41,7 @@ router.get('/getdistrict', async (req, res) => {
                                 md_city_province as city_province,
                                 md_status as status
                                 FROM master_district
-                                `
+                                `,
       );
 
       let result = await Select(select_district_sql);
@@ -54,7 +56,7 @@ router.get('/getdistrict', async (req, res) => {
   }
 });
 
-router.get('/getdistrict_by_search', async (req, res) => {
+router.get("/getdistrict_by_search", async (req, res) => {
   try {
     const { search } = req.query;
 
@@ -77,7 +79,11 @@ router.get('/getdistrict_by_search', async (req, res) => {
              md_store_name LIKE ? OR
              md_city_province LIKE ?)
            ORDER BY md_store_name ASC`,
-          [`%${search.replace(/'/g, "\\'")}%`, `%${search.replace(/'/g, "\\'")}%`, `%${search.replace(/'/g, "\\'")}%`]
+          [
+            `%${search.replace(/'/g, "\\'")}%`,
+            `%${search.replace(/'/g, "\\'")}%`,
+            `%${search.replace(/'/g, "\\'")}%`,
+          ],
         );
       } else {
         select_district_sql = SelectStatement(
@@ -90,7 +96,7 @@ router.get('/getdistrict_by_search', async (req, res) => {
            FROM master_district
            WHERE md_status = 'ACTIVE'
            ORDER BY md_store_name ASC
-           LIMIT 10`
+           LIMIT 10`,
         );
       }
 
@@ -105,12 +111,12 @@ router.get('/getdistrict_by_search', async (req, res) => {
   }
 });
 
-router.get('/getdistrict_by_id', async (req, res) => {
+router.get("/getdistrict_by_id", async (req, res) => {
   try {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ error: 'District ID is required' });
+      return res.status(400).json({ error: "District ID is required" });
     }
 
     async function ProcessData() {
@@ -123,7 +129,8 @@ router.get('/getdistrict_by_id', async (req, res) => {
                                 md_status as status
                                 FROM master_district
                                 WHERE md_id = ?
-                                `, [id]
+                                `,
+        [id],
       );
 
       let result = await Select(select_district_sql);
@@ -138,104 +145,117 @@ router.get('/getdistrict_by_id', async (req, res) => {
   }
 });
 
-router.post("/createdistrict_excel", upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json(JsonResposeError("No file uploaded."));
-    }
-
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
-    const ws = workbook.worksheets[0];
-
-    if (!ws) {
-      return res.status(400).json(JsonResposeError("Invalid Excel format."));
-    }
-
-    const headerRow = ws.getRow(1);
-    const headers = {};
-    headerRow.eachCell((cell, colNumber) => {
-      headers[cell.value?.toString().trim()] = colNumber;
-    });
-
-    const requiredCols = ["STORE NO", "STORE NAME", "REGION", "CITY PROVINCE", "STATUS"];
-    for (const col of requiredCols) {
-      if (!headers[col]) {
-        return res.status(400).json(JsonResposeError(`Missing column: ${col}`));
+router.post(
+  "/createdistrict_excel",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json(JsonResposeError("No file uploaded."));
       }
-    }
 
-    let importedRows = [];
-    for (let i = 2; i <= ws.rowCount; i++) {
-      const row = ws.getRow(i);
-      const store_no = row.getCell(headers["STORE NO"]).value;
-      const store_name = row.getCell(headers["STORE NAME"]).value;
-      const region = row.getCell(headers["REGION"]).value;
-      const city_province = row.getCell(headers["CITY PROVINCE"]).value;
-      const status = row.getCell(headers["STATUS"]).value || "ACTIVE";
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(req.file.buffer);
+      const ws = workbook.worksheets[0];
 
-      if (!store_no || !store_name) continue;
+      if (!ws) {
+        return res.status(400).json(JsonResposeError("Invalid Excel format."));
+      }
 
-      const check_sql = SelectStatement(`
+      const headerRow = ws.getRow(1);
+      const headers = {};
+      headerRow.eachCell((cell, colNumber) => {
+        headers[cell.value?.toString().trim()] = colNumber;
+      });
+
+      const requiredCols = [
+        "STORE NO",
+        "STORE NAME",
+        "REGION",
+        "CITY PROVINCE",
+        "STATUS",
+      ];
+      for (const col of requiredCols) {
+        if (!headers[col]) {
+          return res
+            .status(400)
+            .json(JsonResposeError(`Missing column: ${col}`));
+        }
+      }
+
+      let importedRows = [];
+      for (let i = 2; i <= ws.rowCount; i++) {
+        const row = ws.getRow(i);
+        const store_no = row.getCell(headers["STORE NO"]).value;
+        const store_name = row.getCell(headers["STORE NAME"]).value;
+        const region = row.getCell(headers["REGION"]).value;
+        const city_province = row.getCell(headers["CITY PROVINCE"]).value;
+        const status = row.getCell(headers["STATUS"]).value || "ACTIVE";
+
+        if (!store_no || !store_name) continue;
+
+        const check_sql = SelectStatement(`
         SELECT md_id FROM master_district WHERE md_store_number = '${store_no}'
       `);
-      const check_result = await Select(check_sql);
-      if (check_result.length > 0) {
-        continue;
+        const check_result = await Select(check_sql);
+        if (check_result.length > 0) {
+          continue;
+        }
+        const insert_data = [
+          [store_no, store_name, region, city_province, status],
+        ];
+        const insert_sql = InsertStatement("master_district", "md_", [
+          "store_number",
+          "store_name",
+          "region",
+          "city_province",
+          "status",
+        ]);
+
+        await Insert(insert_sql, insert_data);
+
+        importedRows.push({
+          store_no,
+          store_name,
+          region,
+          city_province,
+          status,
+        });
       }
-      const insert_data = [[store_no, store_name, region, city_province, status]];
-      const insert_sql = InsertStatement(
-        "master_district",
-        "md_",
-        ["store_number", "store_name", "region", "city_province", "status"]
+
+      res.status(200).json(
+        JsonResponseSuccess({
+          message: `${importedRows.length} store records successfully imported.`,
+          imported: importedRows,
+        }),
       );
-
-      await Insert(insert_sql, insert_data);
-
-      importedRows.push({
-        store_no,
-        store_name,
-        region,
-        city_province,
-        status
-      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json(JsonResposeError(error));
     }
-
-    res.status(200).json(JsonResponseSuccess({
-      message: `${importedRows.length} store records successfully imported.`,
-      imported: importedRows
-    }));
-  } catch (error) {
-    console.error(error);
-    res.status(500).json(JsonResposeError(error));
-  }
-});
+  },
+);
 
 router.post("/create_district", async (req, res) => {
   try {
     async function ProcessData() {
       const { store_number, store_name, city_province } = req.body;
-      let data = [
-        [
-          store_number,
-          store_name,
-          city_province,
-          "ACTIVE"
-        ],
-      ];
+      let data = [[store_number, store_name, city_province, "ACTIVE"]];
 
       let insert_sql = InsertStatement(
         Masters.master_district.tablename,
         Masters.master_district.prefix,
-        Masters.master_district.insertColumns
+        Masters.master_district.insertColumns,
       );
 
       let districtResult = await Insert(insert_sql, data);
 
-      return res.status(200).json(JsonResponseSuccess({
-        message: "District created successfully.",
-        district: districtResult
-      }));
+      return res.status(200).json(
+        JsonResponseSuccess({
+          message: "District created successfully.",
+          district: districtResult,
+        }),
+      );
     }
 
     await ProcessData();
@@ -243,7 +263,7 @@ router.post("/create_district", async (req, res) => {
     console.error("Error during login:", error);
     res.status(500).json(JsonResposeError(error));
   }
-})
+});
 
 router.put("/update_district", async (req, res) => {
   try {
@@ -253,15 +273,21 @@ router.put("/update_district", async (req, res) => {
       let set_columns = [];
 
       if (store_number) {
-        set_columns.push(Masters.master_district.selectOptionsColumn.store_number);
+        set_columns.push(
+          Masters.master_district.selectOptionsColumn.store_number,
+        );
         data.push(store_number);
       }
       if (store_name) {
-        set_columns.push(Masters.master_district.selectOptionsColumn.store_name);
+        set_columns.push(
+          Masters.master_district.selectOptionsColumn.store_name,
+        );
         data.push(store_name);
       }
       if (city_province) {
-        set_columns.push(Masters.master_district.selectOptionsColumn.city_province);
+        set_columns.push(
+          Masters.master_district.selectOptionsColumn.city_province,
+        );
         data.push(city_province);
       }
       if (status) {
@@ -274,13 +300,15 @@ router.put("/update_district", async (req, res) => {
       let update_sql = UpdateStatement(
         Masters.master_district.tablename,
         set_columns,
-        [Masters.master_district.selectOptionsColumn.id]
+        [Masters.master_district.selectOptionsColumn.id],
       );
       await Update(update_sql, [data]);
 
-      return res.status(200).json(JsonResponseSuccess({
-        message: "District updated successfully.",
-      }));
+      return res.status(200).json(
+        JsonResponseSuccess({
+          message: "District updated successfully.",
+        }),
+      );
     }
 
     await ProcessData();
@@ -288,4 +316,73 @@ router.put("/update_district", async (req, res) => {
     console.error("Error during login:", error);
     res.status(500).json(JsonResposeError(error));
   }
-})
+});
+
+// Download sample template for district import
+router.get("/download_template", async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("District Template");
+
+    // Add headers
+    const headers = [
+      "STORE NO",
+      "STORE NAME",
+      "REGION",
+      "CITY PROVINCE",
+      "STATUS",
+    ];
+    worksheet.addRow(headers);
+
+    // Style the header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF366092" },
+    };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
+
+    // Add sample data
+    const sampleData = [
+      ["1001", "MAIN STORE", "REGION 1", "METRO MANILA", "ACTIVE"],
+      ["1002", "BRANCH STORE", "REGION 2", "CEBU", "ACTIVE"],
+      ["1003", "SATELLITE STORE", "REGION 3", "DAGUPAN", "ACTIVE"],
+    ];
+
+    sampleData.forEach((row, index) => {
+      worksheet.addRow(row);
+      const dataRow = worksheet.getRow(index + 2);
+      dataRow.alignment = { horizontal: "left", vertical: "middle" };
+    });
+
+    // Auto-fit column widths
+    worksheet.columns.forEach((column) => {
+      let maxLength = 0;
+      column.eachCell({ includeEmpty: true }, (cell) => {
+        const cellLength = cell.value ? cell.value.toString().length : 0;
+        if (cellLength > maxLength) {
+          maxLength = cellLength;
+        }
+      });
+      column.width = maxLength + 2;
+    });
+
+    // Set response headers
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="District_Import_Template.xlsx"',
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error generating template:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+});

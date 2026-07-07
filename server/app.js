@@ -32,7 +32,7 @@ const verifyjwt = require("./repository/middleware/authentication");
 const { SetMongo } = require("./repository/middleware/mongodb");
 
 const app = express();
-SetMongo(app);
+// SetMongo(app);
 
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "jade");

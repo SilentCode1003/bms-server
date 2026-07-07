@@ -5,12 +5,12 @@ const MongoDBSession = require("connect-mongodb-session")(session);
 
 exports.SetMongo = (app) => {
   //mongodb
-  mongoose.connect("mongodb://localhost:27017/InventorySystem").then((res) => {
+  mongoose.connect("mongodb://127.0.0.1:27017/InventorySystem").then((res) => {
     console.log("MongoDB Connected!");
   });
 
   const store = new MongoDBSession({
-    uri: "mongodb://localhost:27017/InventorySystem",
+    uri: "mongodb://127.0.0.1:27017/InventorySystem",
     collection: "InventorySystemSessions",
   });
 
@@ -21,8 +21,8 @@ exports.SetMongo = (app) => {
       resave: false,
       saveUninitialized: false,
       store: store,
-      cookie: { secure: false } 
-    })
+      cookie: { secure: false },
+    }),
   );
   /*
   app.use((req, res, next) => {

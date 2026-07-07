@@ -3167,12 +3167,50 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /district/download_template:
+ *   get:
+ *     summary: Download sample template for district import
+ *     description: >
+ *       Downloads a sample Excel template file that can be used as a reference for importing district records.
+ *       The template includes required column headers and sample data demonstrating the proper format.
+ *       Use this template to ensure your import file has the correct structure before uploading.
+ *     tags:
+ *       - District
+ *     produces:
+ *       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+ *     responses:
+ *       200:
+ *         description: Successfully downloaded the district import template (Excel file)
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
  * /district/createdistrict_excel:
  *   post:
  *     summary: Import district records from Excel
  *     description: >
  *       Uploads an Excel file containing district data and inserts records into the database.
- *       The Excel file must contain the following columns: **STORE NO**, **STORE NAME**, **CITY PROVINCE**, and **STATUS**.
+ *       The Excel file must contain the following columns: **STORE NO**, **STORE NAME**, **REGION**, **CITY PROVINCE**, and **STATUS**.
+ *
+ *       **To get a sample template, use the GET /district/download_template endpoint.**
+ *
+ *       Column Requirements:
+ *       - STORE NO: Unique store identifier (required)
+ *       - STORE NAME: Name of the store (required)
+ *       - REGION: Region name (required)
+ *       - CITY PROVINCE: City or province (required)
+ *       - STATUS: Store status, default is "ACTIVE" (optional)
  *     tags:
  *       - District
  *     requestBody:
@@ -3185,7 +3223,7 @@ module.exports = swaggerDocs;
  *               file:
  *                 type: string
  *                 format: binary
- *                 description: Excel (.xlsx) file containing district records
+ *                 description: Excel (.xlsx) file containing district records. Download the template using GET /district/download_template for reference.
  *     responses:
  *       200:
  *         description: Successfully imported district records from Excel
@@ -3208,6 +3246,9 @@ module.exports = swaggerDocs;
  *                       store_name:
  *                         type: string
  *                         example: "BATAC CITY PROPER"
+ *                       region:
+ *                         type: string
+ *                         example: "REGION 1"
  *                       city_province:
  *                         type: string
  *                         example: "ILOCOS NORTE"
@@ -3215,7 +3256,7 @@ module.exports = swaggerDocs;
  *                         type: string
  *                         example: "ACTIVE"
  *       400:
- *         description: Invalid or missing file / incorrect Excel format
+ *         description: Invalid or missing file / incorrect Excel format / missing required columns
  *       500:
  *         description: Internal Server Error
  *         content:
