@@ -358,6 +358,7 @@ router.get("/getcash_liquidation", async (req, res) => {
                     cr.cr_employee_id as employee_id,
                     cr.cr_department as department,
                     cr.cr_position as position,
+                    cr.cr_team_lead as team_lead,
                     l.l_description as description,
                     l.l_amount_obtained as amount_obtained,
                     l.l_amount_expended as amount_expended,

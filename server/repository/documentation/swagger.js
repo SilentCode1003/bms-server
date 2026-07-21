@@ -125,7 +125,7 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://localhost:5000
+ *       - url: http://192.168.40.50:5000
  *         description: Auth Server
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
