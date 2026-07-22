@@ -15,7 +15,7 @@ const {
   Select,
   Insert,
   Update,
-  connection,
+  pool,
 } = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
 const {
@@ -213,7 +213,7 @@ router.get("/getliquidation_start_location", async (req, res) => {
     async function ProcessData() {
       let whereClause = "WHERE COALESCE(TRIM(li_from), '') NOT IN ('N/A', 'NA', 'na', 'n/a')";
       if (search) {
-        const escaped = connection.escape('%' + search + '%');
+        const escaped = pool.escape('%' + search + '%');
         whereClause += ` AND TRIM(li_from) LIKE ${escaped}`;
       }
 
@@ -443,7 +443,7 @@ router.get("/getstore_routes_from", async (req, res) => {
         WHERE li_store_name LIKE ?
       `;
 
-      const [rows] = await connection
+      const [rows] = await pool
         .promise()
         .query(sql, [`%${cleanStoreName}%`]);
       console.log("ROWSSS Fetched:", rows.length);

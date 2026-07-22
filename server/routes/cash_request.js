@@ -47,7 +47,6 @@ router.get("/getcash_request", async (req, res) => {
   const { status, employee_id } = req.query;
   try {
     async function ProcessData() {
-      console.log(status, employee_id);
       let whereConditions = [];
       if (status) {
         if (status.toLowerCase() === "approved") {
