@@ -125,8 +125,20 @@ module.exports = swaggerDocs;
  * /login/check-credentials:
  *   post:
  *     servers:
- *       - url: http://192.168.40.50:5000
+ *       - url: "{protocol}://{host}:{port}"
  *         description: Auth Server
+ *         variables:
+ *           protocol:
+ *             default: http
+ *             enum:
+ *               - http
+ *               - https
+ *           host:
+ *             default: 192.168.40.235
+ *             description: Server IP address or domain
+ *           port:
+ *             default: "5000"
+ *             description: Server Port
  *     summary: Login
  *     description: Authenticate a user by username and password, and return a JWT token upon successful login.
  *     tags:
@@ -268,9 +280,7 @@ module.exports = swaggerDocs;
  *                 error:
  *                   type: string
  */
-
 //#endregion
-
 //#region Dashboard API Documentation
 /**
  * @swagger

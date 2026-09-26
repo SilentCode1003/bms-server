@@ -145,6 +145,90 @@ router.get("/getdistrict_by_id", async (req, res) => {
   }
 });
 
+
+
+router.post("/create_district", async (req, res) => {
+  try {
+    async function ProcessData() {
+      const { store_number, store_name, city_province } = req.body;
+      let data = [[store_number, store_name, city_province, "ACTIVE"]];
+
+      let insert_sql = InsertStatement(
+        Masters.master_district.tablename,
+        Masters.master_district.prefix,
+        Masters.master_district.insertColumns,
+      );
+
+      let districtResult = await Insert(insert_sql, data);
+
+      return res.status(200).json(
+        JsonResponseSuccess({
+          message: "District created successfully.",
+          district: districtResult,
+        }),
+      );
+    }
+
+    await ProcessData();
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+});
+
+router.put("/update_district", async (req, res) => {
+  try {
+    async function ProcessData() {
+      const { id, store_number, store_name, city_province, status } = req.body;
+      let data = [];
+      let set_columns = [];
+
+      if (store_number) {
+        set_columns.push(
+          Masters.master_district.selectOptionsColumn.store_number,
+        );
+        data.push(store_number);
+      }
+      if (store_name) {
+        set_columns.push(
+          Masters.master_district.selectOptionsColumn.store_name,
+        );
+        data.push(store_name);
+      }
+      if (city_province) {
+        set_columns.push(
+          Masters.master_district.selectOptionsColumn.city_province,
+        );
+        data.push(city_province);
+      }
+      if (status) {
+        set_columns.push(Masters.master_district.selectOptionsColumn.status);
+        data.push(status);
+      }
+
+      data.push(id);
+
+      let update_sql = UpdateStatement(
+        Masters.master_district.tablename,
+        set_columns,
+        [Masters.master_district.selectOptionsColumn.id],
+      );
+      await Update(update_sql, [data]);
+
+      return res.status(200).json(
+        JsonResponseSuccess({
+          message: "District updated successfully.",
+        }),
+      );
+    }
+
+    await ProcessData();
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json(JsonResposeError(error));
+  }
+});
+
 router.post(
   "/createdistrict_excel",
   upload.single("file"),
@@ -235,89 +319,6 @@ router.post(
     }
   },
 );
-
-router.post("/create_district", async (req, res) => {
-  try {
-    async function ProcessData() {
-      const { store_number, store_name, city_province } = req.body;
-      let data = [[store_number, store_name, city_province, "ACTIVE"]];
-
-      let insert_sql = InsertStatement(
-        Masters.master_district.tablename,
-        Masters.master_district.prefix,
-        Masters.master_district.insertColumns,
-      );
-
-      let districtResult = await Insert(insert_sql, data);
-
-      return res.status(200).json(
-        JsonResponseSuccess({
-          message: "District created successfully.",
-          district: districtResult,
-        }),
-      );
-    }
-
-    await ProcessData();
-  } catch (error) {
-    console.error("Error during login:", error);
-    res.status(500).json(JsonResposeError(error));
-  }
-});
-
-router.put("/update_district", async (req, res) => {
-  try {
-    async function ProcessData() {
-      const { id, store_number, store_name, city_province, status } = req.body;
-      let data = [];
-      let set_columns = [];
-
-      if (store_number) {
-        set_columns.push(
-          Masters.master_district.selectOptionsColumn.store_number,
-        );
-        data.push(store_number);
-      }
-      if (store_name) {
-        set_columns.push(
-          Masters.master_district.selectOptionsColumn.store_name,
-        );
-        data.push(store_name);
-      }
-      if (city_province) {
-        set_columns.push(
-          Masters.master_district.selectOptionsColumn.city_province,
-        );
-        data.push(city_province);
-      }
-      if (status) {
-        set_columns.push(Masters.master_district.selectOptionsColumn.status);
-        data.push(status);
-      }
-
-      data.push(id);
-
-      let update_sql = UpdateStatement(
-        Masters.master_district.tablename,
-        set_columns,
-        [Masters.master_district.selectOptionsColumn.id],
-      );
-      await Update(update_sql, [data]);
-
-      return res.status(200).json(
-        JsonResponseSuccess({
-          message: "District updated successfully.",
-        }),
-      );
-    }
-
-    await ProcessData();
-  } catch (error) {
-    console.error("Error during login:", error);
-    res.status(500).json(JsonResposeError(error));
-  }
-});
-
 // Download sample template for district import
 router.get("/download_template", async (req, res) => {
   try {
