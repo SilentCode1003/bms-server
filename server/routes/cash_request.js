@@ -270,31 +270,38 @@ router.get("/getexisting_liquidation", async (req, res) => {
 router.get("/getexisting_cash_request", async (req, res) => {
   try {
     const { id, notification } = req.query;
-console.log("query params:", req.query);
+    console.log("query params:", req.query);
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
-        cr.cr_id as id,
-        cr.cr_reference_id as reference_id,
-        cr.cr_cv_number as cv_number,
-        cr.cr_description as description,
-        cr.cr_team_lead as team_lead,
-        cr.cr_employee as employee,
-        cr.cr_employee_id as employee_id,
-        cr.cr_department as department,
-        cr.cr_position as position,
-        cr.cr_amount as amount,
-        cr.cr_request_date as request_date,
-        cr.cr_status as status,
-        lia.lia_created_at as liquidation_date
-        FROM cash_request cr
-        LEFT JOIN liquidation l ON cr.cr_reference_id = l.l_cr_reference_id
-        LEFT JOIN liquidation_activity lia ON l.l_id = lia.lia_liquidation_id
-        WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
+    cr.cr_id as id,
+    cr.cr_reference_id as reference_id,
+    cr.cr_cv_number as cv_number,
+    cr.cr_description as description,
+    cr.cr_team_lead as team_lead,
+    cr.cr_employee as employee,
+    cr.cr_employee_id as employee_id,
+    cr.cr_department as department,
+    cr.cr_position as position,
+    cr.cr_amount as amount,
+    cr.cr_request_date as request_date,
+    cr.cr_status as status,
+    lia_prep.lia_created_at as liquidation_date,
+    lia_app.lia_created_at as approved_date
+  FROM cash_request cr
+  LEFT JOIN liquidation l 
+    ON cr.cr_reference_id = l.l_cr_reference_id
+  LEFT JOIN liquidation_activity lia_prep 
+    ON l.l_id = lia_prep.lia_liquidation_id 
+    AND UPPER(lia_prep.lia_action) = 'PREPARED'
+  LEFT JOIN liquidation_activity lia_app 
+    ON l.l_id = lia_app.lia_liquidation_id 
+    AND UPPER(lia_app.lia_action) = 'APPROVED'
+  WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
         [id],
       );
       let result = await Select(select_liquidation_sql);
-console.log("existing cash request result:", result);
+      console.log("existing cash request result:", result);
       return res.status(200).json(result);
     }
     await ProcessData();
