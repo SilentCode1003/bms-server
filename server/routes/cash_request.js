@@ -286,8 +286,8 @@ router.get("/getexisting_cash_request", async (req, res) => {
     cr.cr_amount as amount,
     cr.cr_request_date as request_date,
     cr.cr_status as status,
-    lia_prep.lia_created_at as liquidation_date,
-    lia_app.lia_created_at as approved_date
+    lia_prep.lia_created_at as created_date,
+    lia_app.lia_created_at as verified_date 
   FROM cash_request cr
   LEFT JOIN liquidation l 
     ON cr.cr_reference_id = l.l_cr_reference_id
@@ -296,7 +296,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
     AND UPPER(lia_prep.lia_action) = 'PREPARED'
   LEFT JOIN liquidation_activity lia_app 
     ON l.l_id = lia_app.lia_liquidation_id 
-    AND UPPER(lia_app.lia_action) = 'APPROVED'
+    AND UPPER(lia_app.lia_action) = 'VERIFIED'
   WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
         [id],
       );
