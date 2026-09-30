@@ -1,8 +1,11 @@
-const mysql = require('mysql2/promise');
-const { execSync } = require('child_process');
-require('dotenv').config();
-const { DecrypterString } = require('../helper/crytography');
-
+const mysql = require("mysql2/promise");
+const { execSync } = require("child_process");
+require("dotenv").config();
+const { DecrypterString } = require("../helper/crytography");
+console.log(
+  "Decrypted DB Password:",
+  DecrypterString("05c2727e5bcfec26dae23e7a9f2b4ba7"),
+);
 (async () => {
   const dbName = process.env.DB_NAME;
   const dbUser = process.env.DB_USER;
@@ -27,14 +30,23 @@ const { DecrypterString } = require('../helper/crytography');
 
     await connection.end();
 
-    console.log(`📦 Running migrations...`);
-    execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
+    console.log(`📦 Running create migrations...`);
+    execSync(
+      "npx sequelize-cli db:migrate --migrations-path migrations/create",
+      { stdio: "inherit" },
+    );
+
+    console.log(`📦 Running alter migrations...`);
+    execSync(
+      "npx sequelize-cli db:migrate --migrations-path migrations/alter",
+      { stdio: "inherit" },
+    );
 
     console.log(`🌱 Running seeders...`);
-    execSync('npx sequelize-cli db:seed:all', { stdio: 'inherit' });
+    execSync("npx sequelize-cli db:seed:all", { stdio: "inherit" });
 
     console.log(`✅ Database setup complete.`);
   } catch (error) {
-    console.error('❌ Error during DB setup:', error);
+    console.error("❌ Error during DB setup:", error);
   }
 })();

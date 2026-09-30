@@ -78,6 +78,7 @@ router.get("/getcash_request", async (req, res) => {
                   cr.cr_position as position,
                   cr.cr_amount as amount,
                   cr.cr_request_date as request_date,
+                  cr.cr_request_type as request_type,
                   cr.cr_status as status,
                   (
                     SELECT 
@@ -163,6 +164,7 @@ router.get("/getapproved_cash_request", async (req, res) => {
                                     cr.cr_position as position,
                                     cr.cr_amount as amount,
                                     cr.cr_request_date as request_date,
+                                    cr.cr_request_type as request_type,
                                     cr.cr_status as status,
                                     (
                                         SELECT JSON_ARRAYAGG(
@@ -285,9 +287,10 @@ router.get("/getexisting_cash_request", async (req, res) => {
     cr.cr_position as position,
     cr.cr_amount as amount,
     cr.cr_request_date as request_date,
+    cr.cr_request_type as request_type,
     cr.cr_status as status,
     lia_prep.lia_created_at as created_date,
-    lia_app.lia_created_at as verified_date 
+    lia_app.lia_created_at as verified_date
   FROM cash_request cr
   LEFT JOIN liquidation l 
     ON cr.cr_reference_id = l.l_cr_reference_id
@@ -313,6 +316,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
 
 router.post("/createcash_request", async (req, res) => {
   try {
+    const allowedRequestTypes = ["BUDGET", "TRAVEL EXPENSES"];
     const {
       description,
       team_lead,
@@ -321,8 +325,12 @@ router.post("/createcash_request", async (req, res) => {
       department,
       position,
       amount,
+      request_type,
       requested_by,
     } = req.body;
+    const normalizedRequestType =
+      typeof request_type === "string" ? request_type.trim().toUpperCase() : "";
+
     if (
       !description ||
       !team_lead ||
@@ -334,6 +342,16 @@ router.post("/createcash_request", async (req, res) => {
       !requested_by
     ) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
+    }
+
+    if (!allowedRequestTypes.includes(normalizedRequestType)) {
+      return res
+        .status(400)
+        .json(
+          JsonResposeError(
+            "Invalid request_type. Allowed values are BUDGET or TRAVEL EXPENSES.",
+          ),
+        );
     }
     // if(req.body){
     //   console.log("No data provided.")
@@ -402,6 +420,7 @@ router.post("/createcash_request", async (req, res) => {
           position,
           amount,
           request_date,
+          normalizedRequestType,
           status,
         ],
       ];
@@ -435,7 +454,14 @@ router.post("/createcash_request", async (req, res) => {
       );
       await Insert(activity_insert_sql, activityData);
 
-      res.status(200).json(JsonResponseSuccess());
+      res.status(200).json(
+        JsonResponseData({
+          id: cash_request_id,
+          reference_id,
+          request_type: normalizedRequestType,
+          status,
+        }),
+      );
     }
 
     await ProcessData();

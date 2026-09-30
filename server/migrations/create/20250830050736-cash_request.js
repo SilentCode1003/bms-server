@@ -1,9 +1,9 @@
-'use strict';
+"use strict";
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up (queryInterface, Sequelize) {
-    await queryInterface.createTable('cash_request', {
+  async up(queryInterface, Sequelize) {
+    await queryInterface.createTable("cash_request", {
       cr_id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -13,7 +13,7 @@ module.exports = {
       cr_reference_id: {
         type: Sequelize.STRING(120),
         allowNull: false,
-        unique: true
+        unique: true,
       },
       cr_cv_number: {
         type: Sequelize.INTEGER,
@@ -44,17 +44,21 @@ module.exports = {
         allowNull: false,
       },
       cr_amount: {
-        type: Sequelize.DECIMAL(10,2),
+        type: Sequelize.DECIMAL(10, 2),
         allowNull: false,
       },
       cr_request_date: {
         type: Sequelize.STRING(20),
         allowNull: false,
       },
+      cr_request_type: {
+        type: Sequelize.ENUM("BUDGET", "TRAVEL EXPENSES"),
+        allowNull: true,
+      },
       cr_status: {
-        type: Sequelize.ENUM('pending', 'approved', 'completed', 'rejected'),
+        type: Sequelize.ENUM("pending", "approved", "completed", "rejected"),
         allowNull: false,
-        defaultValue: 'pending',
+        defaultValue: "pending",
       },
       cr_notification: {
         type: Sequelize.BOOLEAN,
@@ -64,7 +68,7 @@ module.exports = {
     });
   },
 
-  async down (queryInterface, Sequelize) {
-    await queryInterface.dropTable('cash_request');
-  }
+  async down(queryInterface, Sequelize) {
+    await queryInterface.dropTable("cash_request");
+  },
 };
