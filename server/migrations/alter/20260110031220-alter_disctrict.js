@@ -9,11 +9,11 @@ module.exports = {
      * Example:
      * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
      */
-    await queryInterface.addColumn('master_district', 'md_region', {
-      type: Sequelize.STRING(100),
-      allowNull: true,
-      after: 'md_store_name'
-    });
+    // await queryInterface.addColumn('master_district', 'md_region', {
+    //   type: Sequelize.STRING(100),
+    //   allowNull: true,
+    //   after: 'md_store_name'
+    // });
   },
 
   async down (queryInterface, Sequelize) {

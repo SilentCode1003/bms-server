@@ -14,18 +14,18 @@ module.exports = {
     //   allowNull: true,
     // });
     
-    await queryInterface.addColumn('red_flags', 'rf_approval_status', {
-      type: Sequelize.ENUM('','PENDING', 'APPLIED', 'REJECTED'),
-      allowNull: true,
-    });
-    await queryInterface.addColumn('red_flags', 'rf_updated_by', {
-      type: Sequelize.STRING(300),
-      allowNull: true,
-    });
-    await queryInterface.addColumn('red_flags', 'rf_updated_date', {
-      type: Sequelize.STRING(20),
-      allowNull: true,
-    });
+    // await queryInterface.addColumn('red_flags', 'rf_approval_status', {
+    //   type: Sequelize.ENUM('','PENDING', 'APPLIED', 'REJECTED'),
+    //   allowNull: true,
+    // });
+    // await queryInterface.addColumn('red_flags', 'rf_updated_by', {
+    //   type: Sequelize.STRING(300),
+    //   allowNull: true,
+    // });
+    // await queryInterface.addColumn('red_flags', 'rf_updated_date', {
+    //   type: Sequelize.STRING(20),
+    //   allowNull: true,
+    // });
   },
 
   async down(queryInterface, Sequelize) {
