@@ -290,7 +290,11 @@ router.get("/getexisting_cash_request", async (req, res) => {
     cr.cr_request_type as request_type,
     cr.cr_status as status,
     lia_prep.lia_created_at as created_date,
-    lia_app.lia_created_at as verified_date
+    lia_app.lia_created_at as verified_date,
+    CASE
+        WHEN LOWER(cr.cr_description) REGEXP 'travel expenses|travel|new store|renovation|installation|maintenance|cable pulling|transportation allowance|travel allowance|cable pulling allowance|transportation expenses|deployment|deploy|deployed|transporation|transpo|preventive maintenance' THEN 'TRAVEL EXPENSES'
+        ELSE 'BUDGET'
+    END AS request_category
   FROM cash_request cr
   LEFT JOIN liquidation l 
     ON cr.cr_reference_id = l.l_cr_reference_id
@@ -300,7 +304,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
   LEFT JOIN liquidation_activity lia_app 
     ON l.l_id = lia_app.lia_liquidation_id 
     AND UPPER(lia_app.lia_action) = 'VERIFIED'
-  WHERE ${notification ? "" : `isnull(l.l_status) AND`} cr.cr_id = ?`,
+  WHERE ${notification ? "" : `l.l_status IS NULL AND`} cr.cr_id = ?`,
         [id],
       );
       let result = await Select(select_liquidation_sql);
