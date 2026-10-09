@@ -42,253 +42,20 @@ router.get("/", function (req, res, next) {
 });
 
 module.exports = router;
+router.get("/", function (req, res, next) {
+  res.render("cash_request", { title: "Express" });
+});
+
+module.exports = router;
 
 router.get("/getcash_request", async (req, res) => {
-  const { status, employee_id, start_date, end_date } = req.query;
-
+  const { status, employee_id } = req.query;
   try {
-    async function ProcessData() {
-      let whereConditions = [];
-
-      // ============================================================
-      // STATUS
-      // ============================================================
-      if (status) {
-        if (status.toLowerCase() === "approved") {
-          whereConditions.push(`
-            cr.cr_status IN ('approved', 'completed')
-          `);
-        } else {
-          whereConditions.push(`
-            cr.cr_status = '${status}'
-          `);
-        }
-      }
-
-      // ============================================================
-      // EMPLOYEE
-      // ============================================================
-      if (employee_id) {
-        whereConditions.push(`
-          cr.cr_employee_id = '${employee_id}'
-        `);
-      }
-
-      // ============================================================
-      // START DATE
-      // ============================================================
-      if (start_date) {
-        whereConditions.push(`
-          DATE(cr.cr_request_date) >= '${start_date}'
-        `);
-      }
-
-      // ============================================================
-      // END DATE
-      // ============================================================
-      if (end_date) {
-        whereConditions.push(`
-          DATE(cr.cr_request_date) <= '${end_date}'
-        `);
-      }
-
-      const whereClause =
-        whereConditions.length > 0
-          ? `WHERE ${whereConditions.join(" AND ")}`
-          : "";
-
-      // ============================================================
-      // FIRST: DIAGNOSTIC QUERY
-      // ============================================================
-      //
-      // This DOES NOT filter anything.
-      // It shows us exactly which liquidation records are associated
-      // with each cash request.
-      //
-      // ============================================================
-
-      const debug_sql = SelectStatement(`
-        SELECT
-          cr.cr_id AS cash_request_id,
-          cr.cr_reference_id AS cash_request_reference,
-          cr.cr_cv_number AS cash_request_cv_number,
-          cr.cr_employee_id AS employee_id,
-          cr.cr_amount AS cash_request_amount,
-          cr.cr_status AS cash_request_status,
-
-          l.l_id AS liquidation_id,
-          l.l_cr_reference_id AS liquidation_cr_reference_id
-
-        FROM cash_request cr
-
-        LEFT JOIN liquidation l
-          ON (
-            l.l_cr_reference_id = cr.cr_reference_id
-            OR l.l_cr_reference_id = cr.cr_id
-          )
-
-        ${whereClause}
-
-        ORDER BY cr.cr_id DESC
-      `);
-
-      const debugResult = await Select(debug_sql);
-
-      console.log("");
-      console.log("====================================================");
-      console.log("CASH REQUEST / LIQUIDATION DEBUG");
-      console.log("====================================================");
-
-      if (debugResult.length === 0) {
-        console.log("NO CASH REQUESTS FOUND");
-      }
-
-      debugResult.forEach((row) => {
-        console.log("-----------------------------------------------");
-        console.log("Cash Request ID:", row.cash_request_id);
-        console.log("Cash Request Reference:", row.cash_request_reference);
-        console.log("Cash Request CV:", row.cash_request_cv_number);
-        console.log("Employee ID:", row.employee_id);
-        console.log("Cash Request Amount:", row.cash_request_amount);
-        console.log("Cash Request Status:", row.cash_request_status);
-
-        console.log("Associated Liquidation ID:", row.liquidation_id);
-
-        console.log(
-          "Liquidation CR Reference:",
-          row.liquidation_cr_reference_id,
-        );
-
-        if (row.liquidation_id !== null) {
-          console.log(">>> WARNING: THIS CASH REQUEST HAS A LIQUIDATION <<<");
-        } else {
-          console.log(">>> NO ASSOCIATED LIQUIDATION <<<");
-        }
-      });
-
-      console.log("====================================================");
-      console.log("");
-
-      // ============================================================
-      // ACTUAL CASH REQUEST QUERY
-      // ============================================================
-      //
-      // Only return cash requests where NO liquidation exists.
-      //
-      // ============================================================
-
-      let select_cash_request_sql = SelectStatement(`
-        SELECT
-          cr.cr_id AS id,
-          cr.cr_reference_id AS reference_id,
-          cr.cr_cv_number AS cv_number,
-          cr.cr_description AS description,
-          cr.cr_team_lead AS team_lead,
-          cr.cr_employee AS employee,
-          cr.cr_employee_id AS employee_id,
-          cr.cr_department AS department,
-          cr.cr_position AS position,
-          cr.cr_amount AS amount,
-          cr.cr_request_date AS request_date,
-          cr.cr_request_type AS request_type,
-          cr.cr_status AS status,
-
-          (
-            SELECT JSON_ARRAYAGG(
-              JSON_OBJECT(
-                'id', cra.cra_id,
-                'cash_request_id', cra.cra_cash_request_id,
-                'action', cra.cra_action,
-                'remarks', cra.cra_remarks,
-                'created_at', cra.cra_created_at,
-                'requested_by', cra.cra_requested_by
-              )
-            )
-            FROM cash_request_activity cra
-            WHERE cra.cra_cash_request_id = cr.cr_id
-          ) AS activities
-
-        FROM cash_request cr
-
-        ${whereClause}
-
-        AND NOT EXISTS (
-          SELECT 1
-          FROM liquidation l
-          WHERE
-            l.l_cr_reference_id = cr.cr_reference_id
-            OR l.l_cr_reference_id = cr.cr_id
-        )
-
-        GROUP BY cr.cr_id
-
-        ${
-          status && status.toLowerCase() === "rejected"
-            ? `
-              HAVING EXISTS (
-                SELECT 1
-                FROM cash_request_activity cra1
-                WHERE cra1.cra_cash_request_id = cr.cr_id
-                  AND cra1.cra_action = 'REQUESTED'
-              )
-            `
-            : ""
-        }
-
-        ORDER BY cr.cr_id DESC
-      `);
-
-      console.log("====================================================");
-      console.log("FINAL CASH REQUEST SQL:");
-      console.log(select_cash_request_sql);
-      console.log("====================================================");
-
-      const result = await Select(select_cash_request_sql);
-
-      // ============================================================
-      // LOG FINAL RESULTS
-      // ============================================================
-
-      console.log("");
-      console.log("====================================================");
-      console.log("FINAL CASH REQUEST RESULTS");
-      console.log("====================================================");
-
-      result.forEach((row) => {
-        console.log(
-          `Cash Request ID: ${row.id} | Reference: ${row.reference_id}`,
-        );
-      });
-
-      console.log("TOTAL CASH REQUESTS RETURNED:", result.length);
-
-      console.log("====================================================");
-      console.log("");
-
-      emitCashRequestUpdate(req, "fetched", {
-        event: "cash_requests_fetched",
-        status: "success",
-        count: result.length,
-        timestamp: new Date().toISOString(),
-      });
-
-      const io = req.app.get("io");
-
-      if (io) {
-        io.emit("cash_request:fetched", {
-          status: "success",
-          count: result.length,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      return res.status(200).json(result);
-    }
+    async function ProcessData() {}
 
     await ProcessData();
   } catch (error) {
     console.error("Error fetching cash requests:", error);
-
     emitCashRequestUpdate(req, "error", {
       event: "cash_requests_fetch_error",
       status: "error",
@@ -296,11 +63,9 @@ router.get("/getcash_request", async (req, res) => {
       error: error.message,
       timestamp: new Date().toISOString(),
     });
-
-    return res.status(500).json(JsonResposeError(error));
+    res.status(500).json(JsonResposeError(error));
   }
 });
-
 router.get("/getapproved_cash_request", async (req, res) => {
   const { status } = req.query;
   try {
