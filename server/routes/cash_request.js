@@ -51,7 +51,92 @@ module.exports = router;
 router.get("/getcash_request", async (req, res) => {
   const { status, employee_id } = req.query;
   try {
-    async function ProcessData() {}
+    async function ProcessData() {
+      let whereConditions = [];
+      if (status) {
+        if (status.toLowerCase() === "approved") {
+          whereConditions.push(`cr.cr_status IN ('approved','completed')`);
+        } else {
+          whereConditions.push(`cr.cr_status = '${status}'`);
+        }
+      }
+
+      if (employee_id) {
+        whereConditions.push(`cr.cr_employee_id = '${employee_id}'`);
+      }
+
+      let whereClause =
+        whereConditions.length > 0
+          ? `WHERE ${whereConditions.join(" AND ")}`
+          : "";
+
+      let select_cash_request_sql = SelectStatement(
+        `SELECT
+                  cr.cr_id as id,
+                  cr.cr_reference_id as reference_id,
+                  cr.cr_cv_number as cv_number,
+                  cr.cr_description as description,
+                  cr.cr_team_lead as team_lead,
+                  cr.cr_employee as employee,
+                  cr.cr_employee_id as employee_id,
+                  cr.cr_department as department,
+                  cr.cr_position as position,
+                  cr.cr_amount as amount,
+                  cr.cr_request_date as request_date,
+                  cr.cr_request_type as request_type,
+                  cr.cr_status as status,
+                  (
+                    SELECT 
+                        JSON_ARRAYAGG(
+                          JSON_OBJECT(
+                            'id', cra.cra_id,
+                            'cash_request_id', cra.cra_cash_request_id,
+                            'action', cra.cra_action,
+                            'remarks', cra.cra_remarks,
+                            'created_at', cra.cra_created_at,
+                            'requested_by', cra.cra_requested_by
+                          )
+                        )
+                    FROM cash_request_activity cra
+                    WHERE cra.cra_cash_request_id = cr.cr_id
+                  ) AS activities
+              FROM cash_request cr
+              ${whereClause}
+              GROUP BY cr.cr_id
+              ${
+                status && status.toLowerCase() === "rejected"
+                  ? `HAVING 
+                        EXISTS (
+                          SELECT 1 
+                          FROM cash_request_activity cra1
+                          WHERE cra1.cra_cash_request_id = cr.cr_id
+                          AND cra1.cra_action = 'REQUESTED'
+                        )`
+                  : ""
+              }
+              ORDER BY cr.cr_id DESC`,
+      );
+
+      let result = await Select(select_cash_request_sql);
+
+      emitCashRequestUpdate(req, "fetched", {
+        event: "cash_requests_fetched",
+        status: "success",
+        count: result.length,
+        timestamp: new Date().toISOString(),
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("cash_request:fetched", {
+          status: "success",
+          count: result.length,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return res.status(200).json(result);
+    }
 
     await ProcessData();
   } catch (error) {
