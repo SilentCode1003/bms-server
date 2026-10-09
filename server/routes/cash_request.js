@@ -50,11 +50,12 @@ module.exports = router;
 
 router.get("/getcash_request", async (req, res) => {
   const { status, employee_id } = req.query;
-  console.log("getcash_request query params:", req.query);
-  console.log("getcash_request status:", status);
-  console.log("getcash_request employee_id:", employee_id);
+
   try {
     async function ProcessData() {
+        console.log("getcash_request query params:", req.query);
+  console.log("getcash_request status:", status);
+  console.log("getcash_request employee_id:", employee_id);
       let whereConditions = [];
       if (status) {
         if (status.toLowerCase() === "approved") {
