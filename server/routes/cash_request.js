@@ -50,6 +50,7 @@ module.exports = router;
 
 router.get("/getcash_request", async (req, res) => {
   const { status, employee_id } = req.query;
+  console.log("getcash_request query params:", req.query);
   try {
     async function ProcessData() {
       let whereConditions = [];
