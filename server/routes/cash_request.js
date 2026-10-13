@@ -55,7 +55,6 @@ router.get("/getcash_request", async (req, res) => {
     async function ProcessData() {
       let whereConditions = [];
 
-      // Always exclude cash requests that already have an associated liquidation record
       whereConditions.push(`
         NOT EXISTS (
           SELECT 1
@@ -504,8 +503,6 @@ router.post("/createcash_request", async (req, res) => {
       request_type,
       requested_by,
     } = req.body;
-    const normalizedRequestType =
-      typeof request_type === "string" ? request_type.trim().toUpperCase() : "";
 
     if (
       !description ||
@@ -520,21 +517,36 @@ router.post("/createcash_request", async (req, res) => {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
 
-    if (!allowedRequestTypes.includes(normalizedRequestType)) {
-      return res
-        .status(400)
-        .json(
-          JsonResposeError(
-            "Invalid request_type. Allowed values are BUDGET or TRAVEL EXPENSES.",
-          ),
-        );
+    // --- AUTOMATE REQUEST TYPE LOGIC ---
+    let finalRequestType = "";
+
+    if (
+      request_type &&
+      typeof request_type === "string" &&
+      request_type.trim() !== ""
+    ) {
+      const normalizedRequestType = request_type.trim().toUpperCase();
+      if (!allowedRequestTypes.includes(normalizedRequestType)) {
+        return res
+          .status(400)
+          .json(
+            JsonResposeError(
+              "Invalid request_type. Allowed values are BUDGET or TRAVEL EXPENSES.",
+            ),
+          );
+      }
+      finalRequestType = normalizedRequestType;
+    } else {
+      const travelRegex =
+        /travel expenses|travel|new store|renovation|installation|maintenance|cable pulling|transportation allowance|travel allowance|cable pulling allowance|transportation expenses|deployment|deploy|deployed|transporation|transpo|preventive maintenance/i;
+
+      if (travelRegex.test(description)) {
+        finalRequestType = "TRAVEL EXPENSES";
+      } else {
+        finalRequestType = "BUDGET";
+      }
     }
-    // if(req.body){
-    //   console.log("No data provided.")
-    //   return res.status(400).json({
-    //     message: "No data provided.",
-    //   });
-    // }
+    // -----------------------------------
 
     let select_liquidation_sql = "";
     select_liquidation_sql = SelectStatement(
@@ -557,13 +569,6 @@ router.post("/createcash_request", async (req, res) => {
         );
     }
 
-    // let wallet_insert_sql = InsertStatement(
-    //   Masters.master_wallet.tablename,
-    //   Masters.master_wallet.prefix,
-    //   Masters.master_wallet.insertColumns
-    // );
-    // await Insert(wallet_insert_sql, [[employee_id, 0, 0]]);
-
     let status = "PENDING";
     let request_date = GetCurrentDatetime();
     let action = "REQUESTED";
@@ -572,8 +577,8 @@ router.post("/createcash_request", async (req, res) => {
     async function ProcessData() {
       let maxReferenceIdQuery = SelectStatement(
         `SELECT MAX(CAST(SUBSTRING_INDEX(cr_reference_id, '-', -1) AS UNSIGNED)) AS max_sequence 
-                                  FROM cash_request 
-                                  WHERE cr_reference_id LIKE CONCAT('CR-', DATE_FORMAT(NOW(), '%y%m%d'), '-%')`,
+                                    FROM cash_request 
+                                    WHERE cr_reference_id LIKE CONCAT('CR-', DATE_FORMAT(NOW(), '%y%m%d'), '-%')`,
       );
       let maxReferenceIdResult = await Select(maxReferenceIdQuery);
       let maxSequence = maxReferenceIdResult[0]?.max_sequence || 0;
@@ -596,7 +601,7 @@ router.post("/createcash_request", async (req, res) => {
           position,
           amount,
           request_date,
-          normalizedRequestType,
+          finalRequestType, // Uses the automated/validated type here
           status,
         ],
       ];
@@ -634,7 +639,7 @@ router.post("/createcash_request", async (req, res) => {
         JsonResponseData({
           id: cash_request_id,
           reference_id,
-          request_type: normalizedRequestType,
+          request_type: finalRequestType,
           status,
         }),
       );
