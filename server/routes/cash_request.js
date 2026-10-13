@@ -491,7 +491,6 @@ router.get("/getexisting_cash_request", async (req, res) => {
 
 router.post("/createcash_request", async (req, res) => {
   try {
-    const allowedRequestTypes = ["BUDGET", "TRAVEL EXPENSES"];
     const {
       description,
       team_lead,
@@ -500,8 +499,8 @@ router.post("/createcash_request", async (req, res) => {
       department,
       position,
       amount,
-      request_type,
       requested_by,
+      // request_type is completely removed from req.body destruction
     } = req.body;
 
     if (
@@ -517,36 +516,21 @@ router.post("/createcash_request", async (req, res) => {
       return res.status(400).json(JsonResposeError("Missing required fields"));
     }
 
-    // --- AUTOMATE REQUEST TYPE LOGIC ---
-    let finalRequestType = "";
+    // --- FULLY AUTOMATE REQUEST TYPE FROM DESCRIPTION ---
+    let finalRequestType = "BUDGET"; // Default fallback
 
-    if (
-      request_type &&
-      typeof request_type === "string" &&
-      request_type.trim() !== ""
-    ) {
-      const normalizedRequestType = request_type.trim().toUpperCase();
-      if (!allowedRequestTypes.includes(normalizedRequestType)) {
-        return res
-          .status(400)
-          .json(
-            JsonResposeError(
-              "Invalid request_type. Allowed values are BUDGET or TRAVEL EXPENSES.",
-            ),
-          );
-      }
-      finalRequestType = normalizedRequestType;
-    } else {
+    if (description && typeof description === "string") {
       const travelRegex =
         /travel expenses|travel|new store|renovation|installation|maintenance|cable pulling|transportation allowance|travel allowance|cable pulling allowance|transportation expenses|deployment|deploy|deployed|transporation|transpo|preventive maintenance/i;
 
       if (travelRegex.test(description)) {
         finalRequestType = "TRAVEL EXPENSES";
-      } else {
-        finalRequestType = "BUDGET";
       }
     }
-    // -----------------------------------
+
+    console.log("finalRequestType:", finalRequestType);
+    console.log("description:", description);
+    // ----------------------------------------------------
 
     let select_liquidation_sql = "";
     select_liquidation_sql = SelectStatement(
@@ -601,7 +585,7 @@ router.post("/createcash_request", async (req, res) => {
           position,
           amount,
           request_date,
-          finalRequestType, // Uses the automated/validated type here
+          finalRequestType, // Uses the automated regex type
           status,
         ],
       ];

@@ -1323,9 +1323,6 @@ module.exports = swaggerDocs;
  *                 type: string
  *                 nullable: true
  *                 description: Additional remarks.
- *               request_type:
- *                 type: string
- *                 description: Type of request.
  *               requested_by:
  *                 type: string
  *                 nullable: true
