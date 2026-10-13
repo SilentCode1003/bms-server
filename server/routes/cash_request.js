@@ -52,257 +52,121 @@ router.get("/getcash_request", async (req, res) => {
   const { status, employee_id, start_date, end_date } = req.query;
 
   try {
-    async function ProcessData() {
-      let whereConditions = [];
+    let whereConditions = [];
 
-      whereConditions.push(`
-        NOT EXISTS (
-          SELECT 1
-          FROM liquidation l
-          WHERE
-            l.l_cr_reference_id = cr.cr_reference_id
-            OR l.l_cr_reference_id = cr.cr_id
-        )
-      `);
+    // Optimized anti-join logic (ensure indexes exist on l_cr_reference_id)
+    whereConditions.push(`
+      NOT EXISTS (
+        SELECT 1
+        FROM liquidation l
+        WHERE l.l_cr_reference_id = cr.cr_reference_id
+           OR l.l_cr_reference_id = CAST(cr.cr_id AS CHAR)
+      )
+    `);
 
-      // ============================================================
-      // STATUS
-      // ============================================================
-      if (status) {
-        if (status.toLowerCase() === "approved") {
-          whereConditions.push(`
-            cr.cr_status IN ('approved', 'completed')
-          `);
-        } else {
-          whereConditions.push(`
-            cr.cr_status = '${status}'
-          `);
-        }
+    // STATUS
+    if (status) {
+      if (status.toLowerCase() === "approved") {
+        whereConditions.push(`cr.cr_status IN ('approved', 'completed')`);
+      } else {
+        whereConditions.push(`cr.cr_status = ?`);
       }
+    }
 
-      // ============================================================
-      // EMPLOYEE
-      // ============================================================
-      if (employee_id) {
-        whereConditions.push(`
-          cr.cr_employee_id = '${employee_id}'
-        `);
-      }
+    // EMPLOYEE
+    if (employee_id) {
+      whereConditions.push(`cr.cr_employee_id = ?`);
+    }
 
-      // ============================================================
-      // START DATE
-      // ============================================================
-      if (start_date) {
-        whereConditions.push(`
-          DATE(cr.cr_request_date) >= '${start_date}'
-        `);
-      }
+    // START DATE (Sargable format allows index usage: avoids wrapping column in DATE())
+    if (start_date) {
+      whereConditions.push(`cr.cr_request_date >= ?`);
+    }
 
-      // ============================================================
-      // END DATE
-      // ============================================================
-      if (end_date) {
-        whereConditions.push(`
-          DATE(cr.cr_request_date) <= '${end_date}'
-        `);
-      }
+    // END DATE (Inclusive of the whole day up to 23:59:59)
+    if (end_date) {
+      whereConditions.push(`cr.cr_request_date <= ?`);
+    }
 
-      const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+    const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
-      // ============================================================
-      // FIRST: DIAGNOSTIC QUERY
-      // ============================================================
-      let debugWhereConditions = [];
-      if (status) {
-        if (status.toLowerCase() === "approved") {
-          debugWhereConditions.push(
-            `cr.cr_status IN ('approved', 'completed')`,
-          );
-        } else {
-          debugWhereConditions.push(`cr.cr_status = '${status}'`);
-        }
-      }
-      if (employee_id)
-        debugWhereConditions.push(`cr.cr_employee_id = '${employee_id}'`);
-      if (start_date)
-        debugWhereConditions.push(
-          `DATE(cr.cr_request_date) >= '${start_date}'`,
-        );
-      if (end_date)
-        debugWhereConditions.push(`DATE(cr.cr_request_date) <= '${end_date}'`);
+    // Build query parameters array dynamically matching your inputs
+    let queryParams = [];
+    if (status && status.toLowerCase() !== "approved") queryParams.push(status);
+    if (employee_id) queryParams.push(employee_id);
+    if (start_date) queryParams.push(`${start_date} 00:00:00`);
+    if (end_date) queryParams.push(`${end_date} 23:59:59`);
 
-      const debugWhereClause =
-        debugWhereConditions.length > 0
-          ? `WHERE ${debugWhereConditions.join(" AND ")}`
-          : "";
-
-      const debug_sql = SelectStatement(`
-        SELECT
-          cr.cr_id AS cash_request_id,
-          cr.cr_reference_id AS cash_request_reference,
-          cr.cr_cv_number AS cash_request_cv_number,
-          cr.cr_employee_id AS employee_id,
-          cr.cr_amount AS cash_request_amount,
-          cr.cr_status AS cash_request_status,
-
-          l.l_id AS liquidation_id,
-          l.l_cr_reference_id AS liquidation_cr_reference_id
-
-        FROM cash_request cr
-
-        LEFT JOIN liquidation l
-          ON (
-            l.l_cr_reference_id = cr.cr_reference_id
-            OR l.l_cr_reference_id = cr.cr_id
-          )
-
-        ${debugWhereClause}
-
-        ORDER BY cr.cr_id DESC
-      `);
-
-      const debugResult = await Select(debug_sql);
-
-      console.log("");
-      console.log("====================================================");
-      console.log("CASH REQUEST / LIQUIDATION DEBUG");
-      console.log("====================================================");
-
-      if (debugResult.length === 0) {
-        console.log("NO CASH REQUESTS FOUND");
-      }
-
-      debugResult.forEach((row) => {
-        console.log("-----------------------------------------------");
-        console.log("Cash Request ID:", row.cash_request_id);
-        console.log("Cash Request Reference:", row.cash_request_reference);
-        console.log("Cash Request CV:", row.cash_request_cv_number);
-        console.log("Employee ID:", row.employee_id);
-        console.log("Cash Request Amount:", row.cash_request_amount);
-        console.log("Cash Request Status:", row.cash_request_status);
-
-        console.log("Associated Liquidation ID:", row.liquidation_id);
-
-        console.log(
-          "Liquidation CR Reference:",
-          row.liquidation_cr_reference_id,
-        );
-
-        if (row.liquidation_id !== null) {
-          console.log(">>> WARNING: THIS CASH REQUEST HAS A LIQUIDATION <<<");
-        } else {
-          console.log(">>> NO ASSOCIATED LIQUIDATION <<<");
-        }
-      });
-
-      console.log("====================================================");
-      console.log("");
-
-      // ============================================================
-      // ACTUAL CASH REQUEST QUERY
-      // ============================================================
-
-      let select_cash_request_sql = SelectStatement(`
-        SELECT
-          cr.cr_id AS id,
-          cr.cr_reference_id AS reference_id,
-          cr.cr_cv_number AS cv_number,
-          cr.cr_description AS description,
-          cr.cr_team_lead AS team_lead,
-          cr.cr_employee AS employee,
-          cr.cr_employee_id AS employee_id,
-          cr.cr_department AS department,
-          cr.cr_position AS position,
-          cr.cr_amount AS amount,
-          cr.cr_request_date AS request_date,
-          cr.cr_request_type AS request_type,
-          cr.cr_status AS status,
-
-          (
-            SELECT JSON_ARRAYAGG(
-              JSON_OBJECT(
-                'id', cra.cra_id,
-                'cash_request_id', cra.cra_cash_request_id,
-                'action', cra.cra_action,
-                'remarks', cra.cra_remarks,
-                'created_at', cra.cra_created_at,
-                'requested_by', cra.cra_requested_by
-              )
+    // ACTUAL CASH REQUEST QUERY (Single execution)
+    let select_cash_request_sql = SelectStatement(
+      `
+      SELECT
+        cr.cr_id AS id,
+        cr.cr_reference_id AS reference_id,
+        cr.cr_cv_number AS cv_number,
+        cr.cr_description AS description,
+        cr.cr_team_lead AS team_lead,
+        cr.cr_employee AS employee,
+        cr.cr_employee_id AS employee_id,
+        cr.cr_department AS department,
+        cr.cr_position AS position,
+        cr.cr_amount AS amount,
+        cr.cr_request_date AS request_date,
+        cr.cr_request_type AS request_type,
+        cr.cr_status AS status,
+        (
+          SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'id', cra.cra_id,
+              'cash_request_id', cra.cra_cash_request_id,
+              'action', cra.cra_action,
+              'remarks', cra.cra_remarks,
+              'created_at', cra.cra_created_at,
+              'requested_by', cra.cra_requested_by
             )
-            FROM cash_request_activity cra
-            WHERE cra.cra_cash_request_id = cr.cr_id
-          ) AS activities
+          )
+          FROM cash_request_activity cra
+          WHERE cra.cra_cash_request_id = cr.cr_id
+        ) AS activities
+      FROM cash_request cr
+      ${whereClause}
+      GROUP BY cr.cr_id
+      ${
+        status && status.toLowerCase() === "rejected"
+          ? `
+            HAVING EXISTS (
+              SELECT 1
+              FROM cash_request_activity cra1
+              WHERE cra1.cra_cash_request_id = cr.cr_id
+                AND cra1.cra_action = 'REQUESTED'
+            )
+          `
+          : ""
+      }
+      ORDER BY cr.cr_id DESC
+    `,
+      queryParams,
+    );
 
-        FROM cash_request cr
+    const result = await Select(select_cash_request_sql);
 
-        ${whereClause}
+    emitCashRequestUpdate(req, "fetched", {
+      event: "cash_requests_fetched",
+      status: "success",
+      count: result.length,
+      timestamp: new Date().toISOString(),
+    });
 
-        GROUP BY cr.cr_id
-
-        ${
-          status && status.toLowerCase() === "rejected"
-            ? `
-              HAVING EXISTS (
-                SELECT 1
-                FROM cash_request_activity cra1
-                WHERE cra1.cra_cash_request_id = cr.cr_id
-                  AND cra1.cra_action = 'REQUESTED'
-              )
-            `
-            : ""
-        }
-
-        ORDER BY cr.cr_id DESC
-      `);
-
-      console.log("====================================================");
-      console.log("FINAL CASH REQUEST SQL:");
-      console.log(select_cash_request_sql);
-      console.log("====================================================");
-
-      const result = await Select(select_cash_request_sql);
-
-      // ============================================================
-      // LOG FINAL RESULTS
-      // ============================================================
-
-      console.log("");
-      console.log("====================================================");
-      console.log("FINAL CASH REQUEST RESULTS");
-      console.log("====================================================");
-
-      result.forEach((row) => {
-        console.log(
-          `Cash Request ID: ${row.id} | Reference: ${row.reference_id}`,
-        );
-      });
-
-      console.log("TOTAL CASH REQUESTS RETURNED:", result.length);
-
-      console.log("====================================================");
-      console.log("");
-
-      emitCashRequestUpdate(req, "fetched", {
-        event: "cash_requests_fetched",
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("cash_request:fetched", {
         status: "success",
         count: result.length,
         timestamp: new Date().toISOString(),
       });
-
-      const io = req.app.get("io");
-
-      if (io) {
-        io.emit("cash_request:fetched", {
-          status: "success",
-          count: result.length,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      return res.status(200).json(result);
     }
 
-    await ProcessData();
+    return res.status(200).json(result);
   } catch (error) {
     console.error("Error fetching cash requests:", error);
 
@@ -500,7 +364,6 @@ router.post("/createcash_request", async (req, res) => {
       position,
       amount,
       requested_by,
-      // request_type is completely removed from req.body destruction
     } = req.body;
 
     if (
