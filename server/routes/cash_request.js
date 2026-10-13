@@ -54,7 +54,6 @@ router.get("/getcash_request", async (req, res) => {
   try {
     let whereConditions = [];
 
-    // Optimized anti-join logic (ensure indexes exist on l_cr_reference_id)
     whereConditions.push(`
       NOT EXISTS (
         SELECT 1
@@ -64,7 +63,6 @@ router.get("/getcash_request", async (req, res) => {
       )
     `);
 
-    // STATUS
     if (status) {
       if (status.toLowerCase() === "approved") {
         whereConditions.push(`cr.cr_status IN ('approved', 'completed')`);
@@ -73,31 +71,27 @@ router.get("/getcash_request", async (req, res) => {
       }
     }
 
-    // EMPLOYEE
     if (employee_id) {
       whereConditions.push(`cr.cr_employee_id = ?`);
     }
 
-    // START DATE (Sargable format allows index usage: avoids wrapping column in DATE())
     if (start_date) {
       whereConditions.push(`cr.cr_request_date >= ?`);
     }
 
-    // END DATE (Inclusive of the whole day up to 23:59:59)
     if (end_date) {
       whereConditions.push(`cr.cr_request_date <= ?`);
     }
 
     const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
-    // Build query parameters array dynamically matching your inputs
     let queryParams = [];
     if (status && status.toLowerCase() !== "approved") queryParams.push(status);
     if (employee_id) queryParams.push(employee_id);
     if (start_date) queryParams.push(`${start_date} 00:00:00`);
     if (end_date) queryParams.push(`${end_date} 23:59:59`);
 
-    // ACTUAL CASH REQUEST QUERY (Single execution)
+    // FLAT JOIN QUERY (Drastically faster than JSON_ARRAYAGG subquery)
     let select_cash_request_sql = SelectStatement(
       `
       SELECT
@@ -114,23 +108,14 @@ router.get("/getcash_request", async (req, res) => {
         cr.cr_request_date AS request_date,
         cr.cr_request_type AS request_type,
         cr.cr_status AS status,
-        (
-          SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-              'id', cra.cra_id,
-              'cash_request_id', cra.cra_cash_request_id,
-              'action', cra.cra_action,
-              'remarks', cra.cra_remarks,
-              'created_at', cra.cra_created_at,
-              'requested_by', cra.cra_requested_by
-            )
-          )
-          FROM cash_request_activity cra
-          WHERE cra.cra_cash_request_id = cr.cr_id
-        ) AS activities
+        cra.cra_id AS activity_id,
+        cra.cra_action AS activity_action,
+        cra.cra_remarks AS activity_remarks,
+        cra.cra_created_at AS activity_created_at,
+        cra.cra_requested_by AS activity_requested_by
       FROM cash_request cr
+      LEFT JOIN cash_request_activity cra ON cra.cra_cash_request_id = cr.cr_id
       ${whereClause}
-      GROUP BY cr.cr_id
       ${
         status && status.toLowerCase() === "rejected"
           ? `
@@ -148,7 +133,44 @@ router.get("/getcash_request", async (req, res) => {
       queryParams,
     );
 
-    const result = await Select(select_cash_request_sql);
+    const rawRows = await Select(select_cash_request_sql);
+
+    // Group flat rows into structured objects with an 'activities' array in Node.js
+    const resultMap = new Map();
+
+    for (const row of rawRows) {
+      if (!resultMap.has(row.id)) {
+        resultMap.set(row.id, {
+          id: row.id,
+          reference_id: row.reference_id,
+          cv_number: row.cv_number,
+          description: row.description,
+          team_lead: row.team_lead,
+          employee: row.employee,
+          employee_id: row.employee_id,
+          department: row.department,
+          position: row.position,
+          amount: row.amount,
+          request_date: row.request_date,
+          request_type: row.request_type,
+          status: row.status,
+          activities: [],
+        });
+      }
+
+      if (row.activity_id) {
+        resultMap.get(row.id).activities.push({
+          id: row.activity_id,
+          cash_request_id: row.id,
+          action: row.activity_action,
+          remarks: row.activity_remarks,
+          created_at: row.activity_created_at,
+          requested_by: row.activity_requested_by,
+        });
+      }
+    }
+
+    const result = Array.from(resultMap.values());
 
     emitCashRequestUpdate(req, "fetched", {
       event: "cash_requests_fetched",
