@@ -60,7 +60,7 @@ router.get("/getcash_request", async (req, res) => {
         SELECT 1
         FROM liquidation l
         WHERE l.l_cr_reference_id = cr.cr_reference_id
-           OR l.l_cr_reference_id = CAST(cr.cr_id AS CHAR)
+           OR l.l_cr_reference_id = CAST(cr.cr_id AS CHAR) COLLATE utf8mb4_unicode_ci
       )
     `);
 
