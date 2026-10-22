@@ -9,16 +9,17 @@ const MESSAGE_STATUS = {
   UNAUTHORIZED: "UNAUTHORIZED",
 };
 
-exports.JsonResponseSuccess = () => {
+exports.JsonResponseSuccess = (data = {}) => {
   return {
     message: MESSAGE_STATUS.SUCCESS,
+    ...data,
   };
 };
 
 exports.JsonResponseData = (data) => {
   return {
     message: MESSAGE_STATUS.SUCCESS,
-    data: data,
+    ...data,
   };
 };
 

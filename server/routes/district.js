@@ -11,17 +11,292 @@ const {
   UpdateStatement,
 } = require("../repository/helper/customhelper");
 const { Masters } = require("../repository/model/masters");
-const { Select, Insert, Update } = require("../repository/helper/dbconnect");
+const {
+  Select,
+  Insert,
+  Update,
+  Delete,
+} = require("../repository/helper/dbconnect");
 const { STATUS } = require("../repository/helper/dictionary");
 const {
   EncrypterString,
   DecrypterString,
 } = require("../repository/helper/crytography");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
 const ExcelJS = require("exceljs");
 const multer = require("multer");
 const upload = multer();
 var router = express.Router();
+
+const SLINK_API_BASE_URL = (
+  process.env.SLINK_LINK ||
+  process.env.SLINK_API_BASE_URL ||
+  "https://slink-api.5lsolutions.com"
+).replace(/\/$/, "");
+
+const MAX_SLINK_SYNC_LIMIT = 1000;
+
+const normalizeSyncLimit = (value, fallback = 500) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  if (numericValue < 1) {
+    return 1;
+  }
+
+  if (numericValue > MAX_SLINK_SYNC_LIMIT) {
+    return MAX_SLINK_SYNC_LIMIT;
+  }
+
+  return Math.floor(numericValue);
+};
+
+const cleanText = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value).trim();
+};
+
+const normalizeStoreNumber = (value) => {
+  const normalized = cleanText(value).replace(/['"]/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  if (normalized.length > 10) {
+    return null;
+  }
+
+  return normalized;
+};
+
+const normalizeStoreName = (value) => {
+  const normalized = cleanText(value).replace(/['"]/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (/^[0-9]+$/.test(normalized)) {
+    return null;
+  }
+
+  return normalized;
+};
+
+const normalizeDistrictRecord = (store = {}) => {
+  const storeNumberCandidate = normalizeStoreNumber(
+    store.store_no ?? store.storeNo ?? store.store_number ?? store.storeNumber,
+  );
+
+  const storeNameCandidate = normalizeStoreName(
+    store.store_name ?? store.storeName ?? store.name ?? store.company_name,
+  );
+
+  if (!storeNumberCandidate || !storeNameCandidate) {
+    return null;
+  }
+
+  const region = cleanText(
+    store.region ??
+      store.region_name ??
+      store.regionName ??
+      store.company_region ??
+      "N/A",
+  );
+  const cityProvince = cleanText(
+    store.city_province ??
+      store.cityProvince ??
+      store.city_province_name ??
+      store.city ??
+      store.province ??
+      "N/A",
+  );
+  const status = String(store.status ?? "ACTIVE")
+    .trim()
+    .toUpperCase();
+
+  return {
+    store_number: String(storeNumberCandidate).trim(),
+    store_name: String(storeNameCandidate).trim(),
+    region: region || "N/A",
+    city_province: cityProvince || "N/A",
+    status: status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+  };
+};
+
+const extractSlinkStoreList = (payload) => {
+  if (!payload) {
+    return [];
+  }
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  const nestedPayload =
+    payload.data &&
+    typeof payload.data === "object" &&
+    !Array.isArray(payload.data)
+      ? payload.data
+      : payload;
+
+  if (Array.isArray(nestedPayload)) {
+    return nestedPayload;
+  }
+
+  if (Array.isArray(nestedPayload.customers)) {
+    return nestedPayload.customers;
+  }
+
+  if (Array.isArray(nestedPayload.stores)) {
+    return nestedPayload.stores;
+  }
+
+  if (Array.isArray(nestedPayload.items)) {
+    return nestedPayload.items;
+  }
+
+  if (Array.isArray(nestedPayload.result)) {
+    return nestedPayload.result;
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  return [];
+};
+
+async function syncDistrictFromSlinkStores({
+  status = "ACTIVE",
+  limit = 500,
+} = {}) {
+  const safeLimit = normalizeSyncLimit(limit, 500);
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${process.env.PROJECT_AUTHORIZATION_TOKEN}`,
+  };
+
+  let afterId = null;
+  let page = 0;
+  let skippedDuplicates = 0;
+  const districtRecordsByStoreNumber = new Map();
+
+  do {
+    page += 1;
+
+    const params = {
+      limit: safeLimit,
+      ...(status ? { status } : {}),
+      ...(afterId !== null ? { after_id: afterId } : {}),
+    };
+
+    const response = await axios.get(`${SLINK_API_BASE_URL}/bms/stores`, {
+      params,
+      headers,
+      timeout: 30000,
+    });
+
+    const responsePayload = response?.data || {};
+    const payload =
+      responsePayload &&
+      responsePayload.data &&
+      typeof responsePayload.data === "object"
+        ? responsePayload.data
+        : responsePayload;
+    const stores = extractSlinkStoreList(payload);
+
+    if (!stores.length) {
+      break;
+    }
+
+    for (const store of stores) {
+      const districtRecord = normalizeDistrictRecord(store);
+
+      if (!districtRecord) {
+        continue;
+      }
+
+      if (districtRecordsByStoreNumber.has(districtRecord.store_number)) {
+        skippedDuplicates += 1;
+        continue;
+      }
+      districtRecordsByStoreNumber.set(
+        districtRecord.store_number,
+        districtRecord,
+      );
+    }
+
+    const nextAfterId =
+      payload.next_after_id ?? payload.nextAfterId ?? payload.after_id ?? null;
+    const hasMore =
+      payload.has_more !== undefined
+        ? Boolean(payload.has_more)
+        : payload.hasMore !== undefined
+          ? Boolean(payload.hasMore)
+          : nextAfterId !== null && nextAfterId !== undefined;
+
+    if (!hasMore || !nextAfterId) {
+      break;
+    }
+
+    afterId = nextAfterId;
+  } while (page < 50);
+
+  if (districtRecordsByStoreNumber.size === 0) {
+    const error = new Error(
+      "Slink returned no stores with valid store numbers. Existing district data was not changed. Check the owner filter and Slink response.",
+    );
+    error.statusCode = 502;
+    throw error;
+  }
+
+  await Delete("DELETE FROM master_district");
+
+  const insertSql = InsertStatement("master_district", "md_", [
+    "store_number",
+    "store_name",
+    "region",
+    "city_province",
+    "status",
+  ]);
+  const syncedStoreNumbers = [];
+
+  for (const districtRecord of districtRecordsByStoreNumber.values()) {
+    const insertData = [
+      [
+        districtRecord.store_number,
+        districtRecord.store_name,
+        districtRecord.region,
+        districtRecord.city_province,
+        districtRecord.status,
+      ],
+    ];
+
+    await Insert(insertSql, insertData);
+    syncedStoreNumbers.push(districtRecord.store_number);
+  }
+
+  return {
+    totalSynced: syncedStoreNumbers.length,
+    skippedDuplicates,
+    syncedStoreNumbers,
+    status,
+    limit: safeLimit,
+  };
+}
 
 /* GET district page. */
 router.get("/", function (req, res, next) {
@@ -29,6 +304,62 @@ router.get("/", function (req, res, next) {
 });
 
 module.exports = router;
+
+router.post("/sync_slink_stores", async (req, res) => {
+  try {
+    const { status = "ACTIVE", limit = 500 } = req.body || {};
+
+    const safeLimit = normalizeSyncLimit(limit, 500);
+
+    const syncResult = await syncDistrictFromSlinkStores({
+      status,
+      limit: safeLimit,
+    });
+
+    return res.status(200).json(
+      JsonResponseSuccess({
+        message: "District sync from Slink completed successfully.",
+        ...syncResult,
+      }),
+    );
+  } catch (error) {
+    console.error(
+      "Error syncing district from Slink:",
+      error.response?.data || error.message,
+    );
+    return res
+      .status(error.statusCode || 500)
+      .json(JsonResposeError(error.message));
+  }
+});
+
+router.get("/sync_slink_stores", async (req, res) => {
+  try {
+    const { status = "ACTIVE", limit = 500 } = req.query;
+
+    const safeLimit = normalizeSyncLimit(limit, 500);
+
+    const syncResult = await syncDistrictFromSlinkStores({
+      status,
+      limit: safeLimit,
+    });
+
+    return res.status(200).json(
+      JsonResponseSuccess({
+        message: "District sync from Slink completed successfully.",
+        ...syncResult,
+      }),
+    );
+  } catch (error) {
+    console.error(
+      "Error syncing district from Slink:",
+      error.response?.data || error.message,
+    );
+    return res
+      .status(error.statusCode || 500)
+      .json(JsonResposeError(error.message));
+  }
+});
 
 router.get("/getdistrict", async (req, res) => {
   try {
@@ -144,8 +475,6 @@ router.get("/getdistrict_by_id", async (req, res) => {
     res.status(500).json(JsonResposeError(error));
   }
 });
-
-
 
 router.post("/create_district", async (req, res) => {
   try {

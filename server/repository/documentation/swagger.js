@@ -3177,6 +3177,123 @@ module.exports = swaggerDocs;
 
 /**
  * @swagger
+ * /district/sync_slink_stores:
+ *   post:
+ *     summary: Sync district master data from Slink stores
+ *     description: >
+ *       Fetches stores from the Slink API and inserts only the required district fields into the local master_district table.
+ *       This sync only stores the needed data: store number, store name, region, city/province, and status.
+ *       It fetches all owners, paginates using the project authorization token, and skips duplicate store numbers.
+ *       Existing district rows are replaced only after Slink returns valid store data.
+ *     tags:
+ *       - District
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, INACTIVE]
+ *                 example: ACTIVE
+ *                 description: Optional store status filter to fetch from the Slink API.
+ *               limit:
+ *                 type: integer
+ *                 example: 500
+ *                 description: Records per page. Defaults to 500 and is capped at 1000 by the Slink API.
+ *     responses:
+ *       200:
+ *         description: Successfully synced district records from Slink
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: District sync from Slink completed successfully.
+ *                 totalSynced:
+ *                   type: integer
+ *                   example: 42
+ *                 syncedStoreNumbers:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 status:
+ *                   type: string
+ *                   example: ACTIVE
+ *                 limit:
+ *                   type: integer
+ *                   example: 500
+ *       401:
+ *         description: Invalid or missing bearer token
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /district/sync_slink_stores:
+ *   get:
+ *     summary: Sync district master data from Slink stores
+ *     description: Alternate GET route for the same Slink district sync operation.
+ *     tags:
+ *       - District
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, INACTIVE]
+ *         description: Optional Slink status filter.
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 500
+ *         description: Number of records to request per page. Maximum allowed by Slink is 1000.
+ *     responses:
+ *       200:
+ *         description: Successfully synced district records from Slink
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: District sync from Slink completed successfully.
+ *                 totalSynced:
+ *                   type: integer
+ *                   example: 42
+ *       401:
+ *         description: Invalid or missing bearer token
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
  * /district/download_template:
  *   get:
  *     summary: Download sample template for district import
