@@ -91,7 +91,7 @@ router.get("/getcash_request", async (req, res) => {
     if (start_date) queryParams.push(`${start_date} 00:00:00`);
     if (end_date) queryParams.push(`${end_date} 23:59:59`);
 
-    // STEP 1: Fetch ONLY the Cash Requests (No joins, lightning fast)
+    // FLAT JOIN QUERY (Drastically faster than JSON_ARRAYAGG subquery)
     let select_cash_request_sql = SelectStatement(
       `
       SELECT
@@ -107,57 +107,71 @@ router.get("/getcash_request", async (req, res) => {
         cr.cr_amount AS amount,
         cr.cr_request_date AS request_date,
         cr.cr_request_type AS request_type,
-        cr.cr_status AS status
+        cr.cr_status AS status,
+        cra.cra_id AS activity_id,
+        cra.cra_action AS activity_action,
+        cra.cra_remarks AS activity_remarks,
+        cra.cra_created_at AS activity_created_at,
+        cra.cra_requested_by AS activity_requested_by
       FROM cash_request cr
+      LEFT JOIN cash_request_activity cra ON cra.cra_cash_request_id = cr.cr_id
       ${whereClause}
+      ${
+        status && status.toLowerCase() === "rejected"
+          ? `
+            HAVING EXISTS (
+              SELECT 1
+              FROM cash_request_activity cra1
+              WHERE cra1.cra_cash_request_id = cr.cr_id
+                AND cra1.cra_action = 'REQUESTED'
+            )
+          `
+          : ""
+      }
       ORDER BY cr.cr_id DESC
     `,
       queryParams,
     );
 
-    const cashRequests = await Select(select_cash_request_sql);
+    const rawRows = await Select(select_cash_request_sql);
 
-    if (cashRequests.length === 0) {
-      return res.status(200).json([]);
-    }
+    // Group flat rows into structured objects with an 'activities' array in Node.js
+    const resultMap = new Map();
 
-    // Extract all cash request IDs for a single batch activity lookup
-    const cashRequestIds = cashRequests.map((cr) => cr.id);
-
-    // STEP 2: Fetch activities ONLY for these specific IDs in one batch query
-    let placeholders = cashRequestIds.map(() => "?").join(",");
-    let select_activities_sql = SelectStatement(
-      `
-      SELECT
-        cra_id AS id,
-        cra_cash_request_id AS cash_request_id,
-        cra_action AS action,
-        cra_remarks AS remarks,
-        cra_created_at AS created_at,
-        cra_requested_by AS requested_by
-      FROM cash_request_activity
-      WHERE cra_cash_request_id IN (${placeholders})
-    `,
-      cashRequestIds,
-    );
-
-    const activities = await Select(select_activities_sql);
-
-    // STEP 3: Map activities to their respective cash requests in memory
-    const activityMap = new Map();
-    for (const act of activities) {
-      if (!activityMap.has(act.cash_request_id)) {
-        activityMap.set(act.cash_request_id, []);
+    for (const row of rawRows) {
+      if (!resultMap.has(row.id)) {
+        resultMap.set(row.id, {
+          id: row.id,
+          reference_id: row.reference_id,
+          cv_number: row.cv_number,
+          description: row.description,
+          team_lead: row.team_lead,
+          employee: row.employee,
+          employee_id: row.employee_id,
+          department: row.department,
+          position: row.position,
+          amount: row.amount,
+          request_date: row.request_date,
+          request_type: row.request_type,
+          status: row.status,
+          activities: [],
+        });
       }
-      activityMap.get(act.cash_request_id).push(act);
+
+      if (row.activity_id) {
+        resultMap.get(row.id).activities.push({
+          id: row.activity_id,
+          cash_request_id: row.id,
+          action: row.activity_action,
+          remarks: row.activity_remarks,
+          created_at: row.activity_created_at,
+          requested_by: row.activity_requested_by,
+        });
+      }
     }
 
-    const result = cashRequests.map((cr) => ({
-      ...cr,
-      activities: activityMap.get(cr.id) || [],
-    }));
+    const result = Array.from(resultMap.values());
 
-    // Socket and logging updates
     emitCashRequestUpdate(req, "fetched", {
       event: "cash_requests_fetched",
       status: "success",
