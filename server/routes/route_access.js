@@ -94,7 +94,8 @@ router.get("/getroute_access_table", (req, res) => {
             }
 
             let result = await Select(select_sql);
-            res.status(200).json(JsonResponseData(DataModeling(result, Masters.master_route_access.prefix)));
+            console.log("Result:", result);
+            res.status(200).json(JsonResponseData(result));
         }
 
         ProcessData();

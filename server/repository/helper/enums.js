@@ -12,14 +12,14 @@ const MESSAGE_STATUS = {
 exports.JsonResponseSuccess = (data = {}) => {
   return {
     message: MESSAGE_STATUS.SUCCESS,
-    ...data,
+    data: data,
   };
 };
 
 exports.JsonResponseData = (data) => {
   return {
     message: MESSAGE_STATUS.SUCCESS,
-    ...data,
+    data: data,
   };
 };
 
