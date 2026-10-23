@@ -329,7 +329,7 @@ router.get("/getexisting_liquidation", async (req, res) => {
 router.get("/getexisting_cash_request", async (req, res) => {
   try {
     const { id, notification } = req.query;
-    console.log("query params:", req.query);
+    // console.log("query params:", req.query);
     async function ProcessData() {
       let select_liquidation_sql = SelectStatement(
         `SELECT
@@ -365,7 +365,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
         [id],
       );
       let result = await Select(select_liquidation_sql);
-      console.log("existing cash request result:", result);
+      // console.log("existing cash request result:", result);
       return res.status(200).json(result);
     }
     await ProcessData();
@@ -413,8 +413,8 @@ router.post("/createcash_request", async (req, res) => {
       }
     }
 
-    console.log("finalRequestType:", finalRequestType);
-    console.log("description:", description);
+    // console.log("finalRequestType:", finalRequestType);
+    // console.log("description:", description);
     // ----------------------------------------------------
 
     let select_liquidation_sql = "";

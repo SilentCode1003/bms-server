@@ -782,7 +782,7 @@ router.post("/create_liquidation", async (req, res) => {
     let action = "PREPARED";
     let created_at = GetCurrentDatetime();
 
-    console.log("RECEIPTS", receipts);
+    // console.log("RECEIPTS", receipts);
     if (amount_obtained === 0) {
       return res.status(400).json(JsonResposeError("amount obtained is zero"));
     }
@@ -879,9 +879,9 @@ router.post("/create_liquidation", async (req, res) => {
     if (Array.isArray(request_items) && request_items.length > 0) {
       for (const [index, item] of request_items.entries()) {
         if (!item.date || !item.particulars) {
-          console.log(
-            `Request item at index ${index} is missing required fields (date, particulars).`,
-          );
+          // console.log(
+          //   `Request item at index ${index} is missing required fields (date, particulars).`,
+          // );
           return res
             .status(400)
             .json(
@@ -1205,7 +1205,7 @@ router.put("/undo_liquidation", async (req, res) => {
 router.put("/update_liquidation", async (req, res) => {
   try {
     const { status, id, remarks, receipts, created_by } = req.body;
-    console.log(req.body);
+    // console.log(req.body);
     let created_at = GetCurrentDatetime();
     if (!id || !status) {
       return res.status(400).json(JsonResposeError("Missing required fields"));
@@ -1220,7 +1220,7 @@ router.put("/update_liquidation", async (req, res) => {
         timestamp: new Date().toISOString(),
       });
 
-      console.log("");
+      // console.log("");
       if (status === "approved") {
         let data = [status, 1, id];
         let update_sql = UpdateStatement(
@@ -1498,7 +1498,7 @@ router.put("/update_liquidation_rejected", async (req, res) => {
   try {
     const { liquidation_id, items, remarks, receipts, status, updated_by } =
       req.body;
-    console.log(req.body);
+    // console.log(req.body);
     if (!liquidation_id) {
       console.log("Missing liquidation_id");
       return res.status(400).json(JsonResposeError("Missing liquidation_id"));

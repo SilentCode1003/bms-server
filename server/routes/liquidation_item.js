@@ -446,10 +446,10 @@ router.get("/getstore_routes_from", async (req, res) => {
       const [rows] = await pool
         .promise()
         .query(sql, [`%${cleanStoreName}%`]);
-      console.log("ROWSSS Fetched:", rows.length);
+      // console.log("ROWSSS Fetched:", rows.length);
 
       if (!rows || rows.length === 0) {
-        console.log("No routes found for store in DB:", cleanStoreName);
+        // console.log("No routes found for store in DB:", cleanStoreName);
         return res.status(404).json({
           error: `No routes found for store '${cleanStoreName}'`,
         });
@@ -517,12 +517,12 @@ router.get("/getstore_routes_from", async (req, res) => {
       }
 
       if (completePaths.length === 0) {
-        console.log(
-          "No route found from:",
-          cleanStartLocation,
-          "to:",
-          cleanStoreName,
-        );
+        // console.log(
+        //   "No route found from:",
+        //   cleanStartLocation,
+        //   "to:",
+        //   cleanStoreName,
+        // );
         return res.status(404).json({
           error: `No route found from '${cleanStartLocation}' to '${cleanStoreName}'`,
         });
