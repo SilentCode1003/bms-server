@@ -3,7 +3,7 @@ const { createPool } = require("mysql2");
 const { EncrypterString, DecrypterString } = require("./crytography");
 require("dotenv").config();
 
-console.log(DecrypterString("783fc7623334122dc4942786859902af"));
+console.log(DecrypterString("2bad3ee6c23e87990fafbd0703f79008"));
 
 const pool = createPool({
   host: process.env.DB_HOST,
