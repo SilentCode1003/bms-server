@@ -432,6 +432,7 @@ router.get("/getdistrict_by_search", async (req, res) => {
       }
 
       let result = await Select(select_district_sql);
+      console.log("Result:", result);
       return res.status(200).json(result);
     }
 

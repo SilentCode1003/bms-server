@@ -355,7 +355,7 @@ router.get("/getexisting_cash_request", async (req, res) => {
   FROM cash_request cr
   LEFT JOIN liquidation l 
     ON cr.cr_reference_id = l.l_cr_reference_id
-  LEFT JOIN liquidation_activity lia_prep 
+  LEFT JOIN liquidation_activity lia_prep
     ON l.l_id = lia_prep.lia_liquidation_id 
     AND UPPER(lia_prep.lia_action) = 'PREPARED'
   LEFT JOIN liquidation_activity lia_app 

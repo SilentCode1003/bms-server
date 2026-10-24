@@ -4,7 +4,7 @@ require("dotenv").config();
 const { DecrypterString } = require("../helper/crytography");
 console.log(
   "Decrypted DB Password:",
-  DecrypterString("05c2727e5bcfec26dae23e7a9f2b4ba7"),
+  DecrypterString("08cc3cf75d6891c1dc0cb6c94111381f"),
 );
 (async () => {
   const dbName = process.env.DB_NAME;
